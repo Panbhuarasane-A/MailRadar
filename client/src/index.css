@@ -1,0 +1,259 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,300;1,400;1,500;1,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, ::before, ::after {
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  }
+
+  html {
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-[#F8FAFC] text-slate-900 font-sans antialiased transition-colors duration-200;
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    letter-spacing: -0.011em;
+  }
+
+  button, input, select, textarea, optgroup {
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  }
+
+  code, kbd, samp, pre, .font-mono, [class*="font-mono"] {
+    font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  }
+
+  html.dark body {
+    @apply bg-[#0b0c10] text-slate-100;
+  }
+
+  /* Custom clean SaaS scrollbar with smooth hover */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  html.dark ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease;
+  }
+  html.dark ::-webkit-scrollbar-thumb {
+    background: #222634;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+  }
+  html.dark ::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+  }
+}
+
+/* 🌟 SMOOTH INTERACTION UTILITIES */
+
+/* Card hover with subtle 3D lift & soft shadow */
+.interactive-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+  will-change: transform, box-shadow;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+}
+
+.dark .interactive-card:hover {
+  box-shadow: 0 14px 30px -10px rgba(0, 0, 0, 0.6), 0 0 15px rgba(249, 115, 22, 0.08);
+}
+
+.interactive-card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Subtle SaaS card shadows */
+.saas-card {
+  @apply bg-white dark:bg-[#12141c] border border-slate-200/80 dark:border-[#1e2230] rounded-2xl shadow-sm transition-all duration-200;
+}
+
+.saas-card:hover {
+  @apply shadow-md border-slate-300 dark:border-[#2a2f40];
+}
+
+/* Button smooth active feedback */
+button {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Shimmer Loading Wave for Skeletons */
+.shimmer-wave {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.dark .shimmer-wave {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Staggered animation delays for lists and grids */
+.stagger-1 { animation-delay: 40ms; }
+.stagger-2 { animation-delay: 80ms; }
+.stagger-3 { animation-delay: 120ms; }
+.stagger-4 { animation-delay: 160ms; }
+.stagger-5 { animation-delay: 200ms; }
+.stagger-6 { animation-delay: 240ms; }
+.stagger-7 { animation-delay: 280ms; }
+.stagger-8 { animation-delay: 320ms; }
+.stagger-9 { animation-delay: 360ms; }
+.stagger-10 { animation-delay: 400ms; }
+
+/* Modal & Drawer backdrop smoothness */
+.modal-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Glass panel styling */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.dark .glass-panel {
+  background: rgba(18, 20, 28, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(30, 34, 48, 0.8);
+}
+
+/* 🔘 Smooth Spring Toggle & Tab Utilities */
+.toggle-spring {
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tab-pill-active {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.08), 0 1px 4px -1px rgba(0, 0, 0, 0.04);
+}
+
+.dark .tab-pill-active {
+  box-shadow: 0 4px 14px -3px rgba(0, 0, 0, 0.5), 0 0 10px rgba(249, 115, 22, 0.12);
+}
+
+.glow-orange-sm {
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.35);
+}
+
+.glow-blue-sm {
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.35);
+}
+
+.btn-spring {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+
+.btn-spring:hover {
+  transform: translateY(-1px);
+}
+
+.btn-spring:active {
+  transform: translateY(1px) scale(0.97);
+}
+
+/* ✨ Stardust & 3D Flying Robot Animations */
+@keyframes stardustTwinkle {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.6) translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) translateY(-6px);
+  }
+}
+
+@keyframes stardustDrift {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--drift-x, -20px), var(--drift-y, 30px)) scale(0.2) rotate(180deg);
+  }
+}
+
+@keyframes robotFlyLoop {
+  0% {
+    transform: translateY(0px) rotateZ(0deg);
+  }
+  25% {
+    transform: translateY(-8px) rotateZ(2deg) rotateX(4deg);
+  }
+  50% {
+    transform: translateY(2px) rotateZ(-1deg) rotateX(-3deg);
+  }
+  75% {
+    transform: translateY(-12px) rotateZ(-3deg) rotateX(5deg);
+  }
+  100% {
+    transform: translateY(0px) rotateZ(0deg);
+  }
+}
+
+@keyframes mailFloatOrbit {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) rotate(3deg) scale(1.05);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+}
+
+.animate-robot-fly {
+  animation: robotFlyLoop 4.5s ease-in-out infinite;
+}
+
+.animate-mail-float {
+  animation: mailFloatOrbit 3.5s ease-in-out infinite;
+}
+
+.stardust-particle {
+  animation: stardustDrift 1.8s ease-out forwards;
+}
+

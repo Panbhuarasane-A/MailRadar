@@ -1,0 +1,22 @@
+{
+  "name": "mailradar-monorepo",
+  "version": "1.0.0",
+  "description": "MailRadar — AI-Powered Email Intelligence & Action Management System",
+  "scripts": {
+    "dev": "npm run server:dev",
+    "server:dev": "npm run dev --prefix server",
+    "client:dev": "npm run dev --prefix client",
+    "postinstall": "npm run prisma:generate --prefix server",
+    "prisma:generate": "npm run prisma:generate --prefix server",
+    "prisma:push": "npm run prisma:push --prefix server",
+    "server:build": "npm run build --prefix server",
+    "client:build": "npm run build --prefix client",
+    "build": "npm run server:build && npm run client:build",
+    "start": "npm run start --prefix server",
+    "seed": "npm run prisma:seed --prefix server",
+    "deploy:prod": "npm run build && npm run start"
+  },
+  "keywords": ["ai", "email", "productivity", "action-centric", "claude", "radar", "inbox"],
+  "author": "MailRadar Team",
+  "license": "MIT"
+}

@@ -1,0 +1,15 @@
+﻿services:
+  - type: web
+    name: mailradar
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./dev.db
+      - key: ANTHROPIC_API_KEY
+        sync: false
