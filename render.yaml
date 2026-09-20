@@ -3,7 +3,7 @@ services:
     name: mailhinge
     env: node
     plan: free
-    buildCommand: npm install && npm install --prefix server && npm install --prefix client && npm run client:build && npm run server:build
+    buildCommand: npm install && npm install --prefix server && npm install --prefix client && cd server && npx prisma generate && cd .. && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
