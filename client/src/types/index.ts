@@ -58,6 +58,8 @@ export interface Email {
   snoozedUntil?: string | null;
   snoozeReason?: string | null;
   tasks?: Task[];
+  isSpam?: boolean;
+  isPromotional?: boolean;
   feedbacks?: UserFeedback[];
   senderProfile?: SenderProfile;
   createdAt: string;
@@ -100,11 +102,21 @@ export interface SenderProfile {
 export interface UserFeedback {
   id: string;
   userId: string;
-  emailId: string;
-  action: 'thumbs_up' | 'thumbs_down' | 'manual_override';
+  emailId?: string | null;
+  action: 'thumbs_up' | 'thumbs_down' | 'manual_override' | 'direct_feedback' | 'bug_report' | 'feature_request' | string;
   overrideTier?: PriorityTier | null;
   comments?: string | null;
   createdAt: string;
+  email?: {
+    id: string;
+    subject: string;
+    sender: string;
+    senderName?: string | null;
+    priorityScore: number;
+    priorityTier: string;
+    category?: string;
+    receivedAt?: string;
+  } | null;
 }
 
 export interface DailyBriefData {
@@ -160,6 +172,7 @@ export interface UserProfile {
   id: string;
   email: string;
   name?: string | null;
+  role?: 'admin' | 'user';
   sensitivity?: SensitivityLevel;
   preferences?: Record<string, any> | string;
   hasGoogleOAuth?: boolean;
@@ -167,6 +180,91 @@ export interface UserProfile {
   _count?: {
     emails: number;
     tasks: number;
+    feedbacks?: number;
+    senders?: number;
   };
+}
+
+export interface AdminDashboardMetrics {
+  totalUsers: number;
+  totalEmails: number;
+  totalTasks: number;
+  totalFeedbacks: number;
+  totalSenders: number;
+  satisfactionRate: number;
+  priorityBreakdown: {
+    hotspots: number;
+    important: number;
+    normal: number;
+    low: number;
+  };
+  feedbackBreakdown: {
+    thumbsUp: number;
+    thumbsDown: number;
+    manualOverride: number;
+  };
+  trafficSources: {
+    telegram: number;
+    simulated: number;
+    realMailbox: number;
+  };
+  categoryBreakdown: Record<string, number>;
+  apiUsage: {
+    totalCalls: number;
+    geminiCalls: number;
+    scraperCalls: number;
+    avgLatencyMs: number;
+    estimatedTokens: number;
+    successRate: number;
+    activeEndpoints: number;
+  };
+  systemHealth: {
+    database: string;
+    queueStatus: string;
+    geminiApiKey: string;
+    uptime: string;
+    serverUptimeSeconds: number;
+  };
+}
+
+export interface AdminFeedbackItem {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  emailId?: string | null;
+  emailSubject: string;
+  emailSender: string;
+  emailSenderName?: string | null;
+  originalTier: string;
+  emailCategory: string;
+  action: 'thumbs_up' | 'thumbs_down' | 'manual_override' | 'direct_feedback' | 'bug_report' | 'feature_request' | string;
+  overrideTier?: string | null;
+  comments?: string | null;
+  createdAt: string;
+}
+
+export interface AdminUserItem {
+  id: string;
+  email: string;
+  name?: string | null;
+  role: string;
+  sensitivity: string;
+  createdAt: string;
+  emailsCount: number;
+  tasksCount: number;
+  feedbackCount: number;
+  sendersCount: number;
+}
+
+export interface AdminApiLogItem {
+  service: string;
+  endpoint: string;
+  method: string;
+  totalCalls: number;
+  avgLatencyMs: number;
+  errorRate: string;
+  status: string;
+  tokensEstimated: number;
 }
 

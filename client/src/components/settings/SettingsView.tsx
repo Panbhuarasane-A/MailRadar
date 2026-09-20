@@ -148,21 +148,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     {
       id: 'conservative',
       label: 'Conservative',
-      description: 'Strict filtering. Only true emergencies and direct C-suite requests qualify as Urgent (85+ pts).',
+      description: 'Strict filtering. Only true emergencies, executive escalation, and critical deadlines qualify as Urgent.',
       hotspotCutoff: 85,
       importantCutoff: 65,
     },
     {
       id: 'balanced',
       label: 'Balanced (Recommended)',
-      description: 'Default executive calibration. Flags time-sensitive actions, VIP placement requests, and high stakes (80+ pts).',
+      description: 'Default executive calibration. Flags time-sensitive actions, VIP placement requests, and high-stake deliverables.',
       hotspotCutoff: 80,
       importantCutoff: 60,
     },
     {
       id: 'aggressive',
       label: 'Aggressive',
-      description: 'High sensitivity. Escalates any deliverable due this week or email with action items to Urgent (72+ pts).',
+      description: 'High sensitivity. Escalates any deliverable due this week or email with action items to Urgent.',
       hotspotCutoff: 72,
       importantCutoff: 50,
     },
@@ -300,7 +300,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-              {currentUser?.email || 'user@mailradar.ai'}
+              {currentUser?.email || 'user@mailhinge.ai'}
             </p>
           </div>
         </div>
@@ -634,12 +634,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                 <div className="pt-3 border-t border-slate-200/60 dark:border-[#1e2230] space-y-1 text-xs font-mono">
                   <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Urgent Cutoff:</span>
-                    <span className="font-bold text-red-600 dark:text-red-400">{p.hotspotCutoff} pts</span>
+                    <span className="text-slate-500 dark:text-slate-400">Urgent Threshold:</span>
+                    <span className="font-bold text-red-600 dark:text-red-400">
+                      {p.id === 'conservative' ? 'Strict (Critical)' : p.id === 'balanced' ? 'Standard (High)' : 'Sensitive (Broad)'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Important Cutoff:</span>
-                    <span className="font-bold text-amber-600 dark:text-amber-400">{p.importantCutoff} pts</span>
+                    <span className="text-slate-500 dark:text-slate-400">Important Threshold:</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">
+                      {p.id === 'conservative' ? 'High Impact' : p.id === 'balanced' ? 'Moderate Impact' : 'Standard Impact'}
+                    </span>
                   </div>
                 </div>
               </div>

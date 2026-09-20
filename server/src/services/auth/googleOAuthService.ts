@@ -295,7 +295,7 @@ export class GoogleOAuthService {
             theme: 'dark',
             dailyBriefTime: '08:30',
             soundAlerts: true,
-            savedTelegramChannels: ['placementdriveofficial'],
+            savedTelegramChannels: [],
             connectedMailbox: {
               email: cleanEmail,
               provider: 'google_oauth',
@@ -401,7 +401,7 @@ export class GoogleOAuthService {
   }> {
     const accessToken = await this.getValidAccessTokenForUser(userId);
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    const userEmail = user?.email || 'user@mailradar.ai';
+    const userEmail = user?.email || 'user@mailhinge.ai';
 
     // 1. List messages from Gmail Inbox
     const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${Math.min(50, limit)}&q=in:inbox`;
@@ -479,6 +479,7 @@ export class GoogleOAuthService {
         }
 
         const snippet = msgData.snippet || cleanBody.slice(0, 300).replace(/\s+/g, ' ').trim() || '(No content)';
+        const fullBodyToStore = (html && typeof html === 'string' && html.trim().length > 10) ? html : (cleanBody || snippet);
 
         // 2. Create raw email record
         const newEmail = await prisma.email.create({
@@ -491,7 +492,7 @@ export class GoogleOAuthService {
             recipient: userEmail,
             subject,
             bodySnippet: snippet,
-            bodyFull: cleanBody || snippet,
+            bodyFull: fullBodyToStore,
             receivedAt: isNaN(rawDate.getTime()) ? new Date() : rawDate,
             status: 'unread',
             priorityTier: 'normal',

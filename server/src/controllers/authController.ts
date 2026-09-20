@@ -74,6 +74,7 @@ export class AuthController {
       id: user.id,
       email: user.email,
       name: user.name,
+      role: user.role || (user.email === 'admin@mailhinge.ai' ? 'admin' : 'user'),
       sensitivity: user.sensitivity,
       preferences: JSON.stringify(prefs),
       hasGoogleOAuth,
@@ -83,14 +84,28 @@ export class AuthController {
 
   public async getMe(req: Request, res: Response) {
     try {
+      const headerEmail = (req.headers['x-user-email'] as string | undefined)?.trim();
+      const cookieToken = req.cookies?.access_token || req.signedCookies?.access_token;
+      
+      if (!headerEmail && !cookieToken) {
+        return res.json({
+          success: true,
+          data: {
+            user: null,
+            availableUsers: [],
+          },
+        });
+      }
+
       const rawUser = await authService.getUserFromRequest(req);
       const user = await this.formatSafeUser(rawUser);
-      const allUsers = await authService.getAllUsers();
+      const isAdmin = user && (user.role === 'admin' || user.email === 'admin@mailhinge.ai' || user.email?.startsWith('admin@'));
+      const availableUsers = isAdmin ? await authService.getAllUsers() : [user].filter(Boolean);
       return res.json({
         success: true,
         data: {
           user,
-          availableUsers: allUsers,
+          availableUsers,
         },
       });
     } catch (err: any) {
@@ -108,7 +123,8 @@ export class AuthController {
 
       const rawUser = await authService.authenticate(email, password, name);
       const user = await this.formatSafeUser(rawUser);
-      const allUsers = await authService.getAllUsers();
+      const isAdmin = user && (user.role === 'admin' || user.email === 'admin@mailhinge.ai' || user.email?.startsWith('admin@'));
+      const availableUsers = isAdmin ? await authService.getAllUsers() : [user].filter(Boolean);
 
       // Issue HttpOnly JWTs and CSRF token
       this.issueAuthCookies(res, rawUser);
@@ -118,7 +134,7 @@ export class AuthController {
         message: `Logged in as ${user?.name || user?.email || email}`,
         data: {
           user,
-          availableUsers: allUsers,
+          availableUsers,
         },
       });
     } catch (err: any) {
@@ -145,7 +161,8 @@ export class AuthController {
       }
 
       const user = await this.formatSafeUser(rawUser);
-      const allUsers = await authService.getAllUsers();
+      const isAdmin = user && (user.role === 'admin' || user.email === 'admin@mailhinge.ai' || user.email?.startsWith('admin@'));
+      const availableUsers = isAdmin ? await authService.getAllUsers() : [user].filter(Boolean);
 
       // Issue HttpOnly JWTs and CSRF token
       this.issueAuthCookies(res, rawUser);
@@ -155,7 +172,7 @@ export class AuthController {
         message: `Account created for ${user?.name || user?.email || email}`,
         data: {
           user,
-          availableUsers: allUsers,
+          availableUsers,
         },
       });
     } catch (err: any) {

@@ -1,5 +1,5 @@
-﻿# ==========================================
-# Multi-Stage Production Dockerfile for MailRadar
+# ==========================================
+# Multi-Stage Production Dockerfile for MailHinge
 # ==========================================
 
 # Stage 1: Build React Frontend

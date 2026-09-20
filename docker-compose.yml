@@ -1,15 +1,15 @@
-﻿version: '3.8'
+version: '3.8'
 
 services:
   # 1. PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: mailradar-postgres
+    container_name: mailhinge-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: mailradar
+      POSTGRES_DB: mailhinge
     ports:
       - "5432:5432"
     volumes:
@@ -23,7 +23,7 @@ services:
   # 2. Redis Cache & Distributed Queue
   redis:
     image: redis:7-alpine
-    container_name: mailradar-redis
+    container_name: mailhinge-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -40,18 +40,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mailradar-app
+    container_name: mailhinge-app
     restart: unless-stopped
     ports:
       - "4000:4000"
     environment:
       NODE_ENV: production
       PORT: 4000
-      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/mailradar?schema=public"
+      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/mailhinge?schema=public"
       REDIS_URL: "redis://redis:6379"
-      JWT_ACCESS_SECRET: "mailradar_jwt_access_secret_secure_key_2026"
-      JWT_REFRESH_SECRET: "mailradar_jwt_refresh_secret_secure_key_2026"
-      COOKIE_SECRET: "mailradar_signed_cookie_secret_key_2026"
+      JWT_ACCESS_SECRET: "mailhinge_jwt_access_secret_secure_key_2026"
+      JWT_REFRESH_SECRET: "mailhinge_jwt_refresh_secret_secure_key_2026"
+      COOKIE_SECRET: "mailhinge_signed_cookie_secret_key_2026"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       GMAIL_CLIENT_ID: "${GMAIL_CLIENT_ID:-}"
       GMAIL_CLIENT_SECRET: "${GMAIL_CLIENT_SECRET:-}"

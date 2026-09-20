@@ -418,7 +418,7 @@ export const TutorialTourModal: React.FC<TutorialTourModalProps> = ({
                     }`}
                   >
                     <Flame className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Urgent (99 pts)</span>
+                    <span>Urgent Hotspot</span>
                   </button>
 
                   <button
@@ -430,7 +430,7 @@ export const TutorialTourModal: React.FC<TutorialTourModalProps> = ({
                     }`}
                   >
                     <Briefcase className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Career (96 pts)</span>
+                    <span>Career & Offer</span>
                   </button>
 
                   <button
@@ -442,7 +442,7 @@ export const TutorialTourModal: React.FC<TutorialTourModalProps> = ({
                     }`}
                   >
                     <Key className="w-3.5 h-3.5 text-amber-400" />
-                    <span>OTP (91 pts)</span>
+                    <span>Security OTP</span>
                   </button>
 
                   <button
@@ -454,7 +454,7 @@ export const TutorialTourModal: React.FC<TutorialTourModalProps> = ({
                     }`}
                   >
                     <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Task (88 pts)</span>
+                    <span>Action Task</span>
                   </button>
                 </div>
 
@@ -479,13 +479,13 @@ export const TutorialTourModal: React.FC<TutorialTourModalProps> = ({
                   </div>
 
                   <div className="text-right flex-shrink-0 pl-3">
-                    <div className="text-base sm:text-lg font-mono font-black text-cyan-400">
-                      {activeCategoryDemo === 'urgent' && '99 pts'}
-                      {activeCategoryDemo === 'career' && '96 pts'}
-                      {activeCategoryDemo === 'security' && '91 pts'}
-                      {activeCategoryDemo === 'task' && '88 pts'}
+                    <div className="text-xs sm:text-sm font-mono font-bold text-cyan-400 uppercase">
+                      {activeCategoryDemo === 'urgent' && 'Hotspot'}
+                      {activeCategoryDemo === 'career' && 'High'}
+                      {activeCategoryDemo === 'security' && 'Urgent'}
+                      {activeCategoryDemo === 'task' && 'Action'}
                     </div>
-                    <div className="text-[9px] font-mono text-purple-300/70 uppercase">Priority Rank</div>
+                    <div className="text-[9px] font-mono text-purple-300/70 uppercase">Priority Tier</div>
                   </div>
                 </div>
               </div>

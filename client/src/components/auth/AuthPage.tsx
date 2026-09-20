@@ -24,6 +24,7 @@ import {
 import { UserProfile } from '../../types';
 import { api, authStorage } from '../../services/api';
 import { MailBot3D } from '../common/MailBot3D';
+import { TermsAndPrivacyModal } from '../common/TermsAndPrivacyModal';
 
 interface AuthPageProps {
   currentUser: UserProfile | null;
@@ -47,6 +48,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // States
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,7 +79,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       floatingWidget: {
         title: 'TechCorp Senior Engineer Offer',
         category: 'Hotspot • Urgent',
-        score: '98 pts',
+        score: 'Hotspot',
         badge: 'ACTION REQUIRED',
         time: 'Due Today at 5:00 PM',
       },
@@ -126,7 +128,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       description:
         '1-click Google Sign-In, encrypted personal mailbox syncing, and dedicated feeds completely isolated for each user account.',
       floatingWidget: {
-        title: 'panbhuofficial@gmail.com',
+        title: 'user@company.com',
         category: 'Google OAuth Active',
         score: '100% Isolated',
         badge: 'REST API SYNC',
@@ -197,6 +199,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       return;
     }
 
+    if (authMode === 'signup' && !agreedTerms) {
+      setErrorMsg('Please review and agree to the Terms & Conditions to create an account.');
+      setShowTermsModal(true);
+      return;
+    }
+
     setErrorMsg('');
     setSuccessMsg('');
     setIsSubmitting(true);
@@ -252,21 +260,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           {/* Top Brand & Skip Navigation */}
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl overflow-hidden bg-black border border-orange-500/40 shadow-[0_0_16px_rgba(249,115,22,0.4)] flex-shrink-0 transition-transform duration-300 hover:scale-105">
+              <div className="w-11 h-11 rounded-2xl overflow-hidden bg-black border border-amber-500/40 shadow-[0_0_16px_rgba(245,158,11,0.4)] flex-shrink-0 transition-transform duration-300 hover:scale-105">
                 <img
-                  src="/mailo-logo.jpg"
-                  alt="Mailo AI Logo"
+                  src="/mailhinge-logo.jpg"
+                  alt="MailHinge Logo"
                   className="w-full h-full object-cover"
                 />
               </div>
               <div>
                 <div className="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
-                  <span>Mailo</span>
+                  <span>Mail Hinge</span>
                   <span className="text-orange-400 font-black">AI</span>
                   <span className="text-amber-400 text-xs">✦</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/40 font-bold">
-                    v2.0
-                  </span>
                 </div>
                 <div className="text-[11px] text-purple-300/70 font-medium">
                   Action-Centric Email Intelligence
@@ -479,22 +484,42 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </button>
               </div>
 
-              {/* Terms Agreement checkbox */}
+              {/* Terms Agreement checkbox & Review Policy Suggestion */}
               {authMode === 'signup' && (
-                <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none pt-1">
-                  <input
-                    type="checkbox"
-                    checked={agreedTerms}
-                    onChange={(e) => setAgreedTerms(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-700 text-purple-600 focus:ring-purple-500 bg-[#231F38]"
-                  />
-                  <span>
-                    I agree to the{' '}
-                    <span className="text-purple-400 underline hover:text-purple-300">
-                      Terms & Conditions
-                    </span>
-                  </span>
-                </label>
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={agreedTerms}
+                        onChange={(e) => setAgreedTerms(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-700 text-purple-600 focus:ring-purple-500 bg-[#231F38] cursor-pointer"
+                      />
+                      <span>
+                        I agree to the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setShowTermsModal(true)}
+                          className="text-purple-400 underline hover:text-purple-300 font-bold transition-colors"
+                        >
+                          Terms & Conditions
+                        </button>
+                      </span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowTermsModal(true)}
+                      className="text-[11px] text-purple-300/80 hover:text-purple-200 underline font-medium transition-colors"
+                    >
+                      Review Policy
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 pl-6.5 leading-tight">
+                    We suggest you review our data protection, AI processing, and privacy guidelines before registering.
+                  </p>
+                </div>
               )}
 
               {/* Main Action Button */}
@@ -528,7 +553,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </div>
 
             {/* Google OAuth 2.0 Sign In Button */}
-            <div>
+            <div className="space-y-2">
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
@@ -619,6 +644,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Terms & Privacy Policy Modal */}
+      <TermsAndPrivacyModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={() => {
+          setAgreedTerms(true);
+          setShowTermsModal(false);
+        }}
+      />
     </div>
   );
 };

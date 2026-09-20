@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Tag,
   Check,
+  Trash2,
 } from 'lucide-react';
 import {
   getPriorityTheme,
@@ -26,6 +27,7 @@ interface EmailRowProps {
   onStatusChange: (emailId: string, status: 'read' | 'unread' | 'archived') => void;
   onCategoryChange?: (emailId: string, category: string) => void;
   onSnooze: (email: Email) => void;
+  onDelete?: (emailId: string) => void;
 }
 
 export const EmailRow: React.FC<EmailRowProps> = ({
@@ -35,6 +37,7 @@ export const EmailRow: React.FC<EmailRowProps> = ({
   onStatusChange,
   onCategoryChange,
   onSnooze,
+  onDelete,
 }) => {
   const [isReasoningOpen, setIsReasoningOpen] = useState(false);
   const [isStarred, setIsStarred] = useState(false);
@@ -153,6 +156,16 @@ export const EmailRow: React.FC<EmailRowProps> = ({
           >
             <Archive className="w-3.5 h-3.5" />
           </button>
+
+          {onDelete && (
+            <button
+              onClick={() => onDelete(email.id)}
+              title="Delete email"
+              className="p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           <button
             onClick={() => setIsReasoningOpen(!isReasoningOpen)}

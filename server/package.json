@@ -1,7 +1,7 @@
 {
-  "name": "mailradar-server",
+  "name": "mailhinge-server",
   "version": "1.0.0",
-  "description": "MailRadar Backend API and Async Email Intelligence Engine",
+  "description": "MailHinge Backend API and Async Email Intelligence Engine",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

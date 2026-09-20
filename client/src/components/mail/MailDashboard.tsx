@@ -3,6 +3,7 @@ import { Email, CustomCategory, UserProfile } from '../../types';
 import { MailCategoryType, classifyMailCategory, DEFAULT_CUSTOM_CATEGORIES } from '../../utils/categoryClassifier';
 import { MailCategoryCards, CategoryStats } from './MailCategoryCards';
 import { EmailRow } from './EmailRow';
+import { MailView } from '../layout/MailSidebar';
 import {
   Mail,
   Search,
@@ -23,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  ArrowRight,
 } from 'lucide-react';
 
 interface MailDashboardProps {
@@ -34,6 +36,7 @@ interface MailDashboardProps {
   onSelectCategory: (category: 'all' | MailCategoryType) => void;
   activePriorityFilter: string;
   onSelectPriorityFilter: (filter: string) => void;
+  onNavigateView?: (view: MailView) => void;
   searchQuery: string;
   onSelectEmail: (email: Email) => void;
   onStatusChange: (emailId: string, status: 'read' | 'unread' | 'archived') => void;
@@ -43,6 +46,7 @@ interface MailDashboardProps {
   onOpenConnectMailbox: () => void;
   onOpenManageCategories?: () => void;
   onReorderCategories?: (categories: CustomCategory[]) => void;
+  onDeleteEmail?: (emailId: string) => void;
 }
 
 export const MailDashboard: React.FC<MailDashboardProps> = ({
@@ -54,6 +58,7 @@ export const MailDashboard: React.FC<MailDashboardProps> = ({
   onSelectCategory,
   activePriorityFilter,
   onSelectPriorityFilter,
+  onNavigateView,
   searchQuery,
   onSelectEmail,
   onStatusChange,
@@ -63,6 +68,7 @@ export const MailDashboard: React.FC<MailDashboardProps> = ({
   onOpenConnectMailbox,
   onOpenManageCategories,
   onReorderCategories,
+  onDeleteEmail,
 }) => {
   const [statusTab, setStatusTab] = useState<'active' | 'completed'>('active');
   const [categorySubView, setCategorySubView] = useState<'all' | 'priority' | 'recent'>('all');
@@ -329,75 +335,140 @@ export const MailDashboard: React.FC<MailDashboardProps> = ({
         </h1>
       </div>
 
-      {/* 1. 4-Column Stat / Metric Overview Grid (Direct Reference Match) */}
+      {/* 1. 4-Column Stat / Metric Overview Grid (Interactive Navigation & Filtering) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1 */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#12141c] border border-slate-200/80 dark:border-[#1e2230] shadow-xs hover:border-slate-300 dark:hover:border-[#2a2f40] transition-all flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
+        {/* Metric 1: All Analyzed Emails */}
+        <button
+          type="button"
+          onClick={() => {
+            onSelectCategory('all');
+            onSelectPriorityFilter('all');
+            setCategorySubView('all');
+            setStatusTab('active');
+          }}
+          className={`p-4 sm:p-5 rounded-2xl text-left bg-white dark:bg-[#12141c] border transition-all duration-200 flex flex-col justify-between cursor-pointer group shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.99] ${
+            activeCategory === 'all' && activePriorityFilter === 'all' && categorySubView === 'all'
+              ? 'border-blue-500/80 dark:border-blue-500/80 ring-2 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/20'
+              : 'border-slate-200/80 dark:border-[#1e2230] hover:border-blue-400 dark:hover:border-blue-500/60'
+          }`}
+          title="Show all analyzed emails in inbox"
+        >
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               Emails Analyzed
             </span>
-            <span className="text-slate-400 dark:text-slate-500">
+            <span className="text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               <Mail className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-baseline justify-between w-full">
             <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white font-sans">
               {mailEmails.length}
             </div>
+            <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              <span>View all</span>
+              <ArrowRight className="w-3 h-3" />
+            </span>
           </div>
-        </div>
+        </button>
 
-        {/* Metric 2 */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#12141c] border border-slate-200/80 dark:border-[#1e2230] shadow-xs hover:border-slate-300 dark:hover:border-[#2a2f40] transition-all flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
+        {/* Metric 2: High-Risk Hotspots */}
+        <button
+          type="button"
+          onClick={() => {
+            onSelectCategory('all');
+            onSelectPriorityFilter('urgent');
+            setStatusTab('active');
+          }}
+          className={`p-4 sm:p-5 rounded-2xl text-left bg-white dark:bg-[#12141c] border transition-all duration-200 flex flex-col justify-between cursor-pointer group shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.99] ${
+            activePriorityFilter === 'urgent'
+              ? 'border-red-500/80 dark:border-red-500/80 ring-2 ring-red-500/20 bg-red-50/30 dark:bg-red-950/30'
+              : 'border-slate-200/80 dark:border-[#1e2230] hover:border-red-400 dark:hover:border-red-500/60'
+          }`}
+          title="Filter high-risk urgent hotspots"
+        >
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
               High-Risk Hotspots
             </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/40 uppercase">
-              Critical
+            <span className="text-red-500 dark:text-red-400 group-hover:scale-110 transition-transform">
+              <Flame className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-baseline justify-between w-full">
             <div className="text-2xl sm:text-3xl font-extrabold text-red-600 dark:text-red-400 font-sans">
               {urgentCount}
             </div>
+            <span className="text-[11px] font-semibold text-red-600 dark:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              <span>Filter</span>
+              <ArrowRight className="w-3 h-3" />
+            </span>
           </div>
-        </div>
+        </button>
 
-        {/* Metric 3 */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#12141c] border border-slate-200/80 dark:border-[#1e2230] shadow-xs hover:border-slate-300 dark:hover:border-[#2a2f40] transition-all flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
+        {/* Metric 3: Active Action Tasks (Redirects to Action Center Page) */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onNavigateView) {
+              onNavigateView('action-center');
+            }
+          }}
+          className="p-4 sm:p-5 rounded-2xl text-left bg-white dark:bg-[#12141c] border border-slate-200/80 dark:border-[#1e2230] hover:border-orange-400 dark:hover:border-orange-500/60 transition-all duration-200 flex flex-col justify-between cursor-pointer group shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.99]"
+          title="Navigate to Action Center to view and manage all action tasks"
+        >
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
               Active Action Tasks
             </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/40 uppercase">
-              High
+            <span className="text-orange-500 dark:text-orange-400 group-hover:scale-110 transition-transform">
+              <Zap className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-baseline justify-between w-full">
             <div className="text-2xl sm:text-3xl font-extrabold text-orange-600 dark:text-orange-400 font-sans">
               {allPriorityCount}
             </div>
+            <span className="text-[11px] font-semibold text-orange-600 dark:text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              <span>Action Center</span>
+              <ArrowRight className="w-3 h-3" />
+            </span>
           </div>
-        </div>
+        </button>
 
-        {/* Metric 4 */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#12141c] border border-slate-200/80 dark:border-[#1e2230] shadow-xs hover:border-slate-300 dark:hover:border-[#2a2f40] transition-all flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
+        {/* Metric 4: Important Notices */}
+        <button
+          type="button"
+          onClick={() => {
+            onSelectCategory('all');
+            onSelectPriorityFilter('important');
+            setStatusTab('active');
+          }}
+          className={`p-4 sm:p-5 rounded-2xl text-left bg-white dark:bg-[#12141c] border transition-all duration-200 flex flex-col justify-between cursor-pointer group shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.99] ${
+            activePriorityFilter === 'important'
+              ? 'border-amber-500/80 dark:border-amber-500/80 ring-2 ring-amber-500/20 bg-amber-50/30 dark:bg-amber-950/30'
+              : 'border-slate-200/80 dark:border-[#1e2230] hover:border-amber-400 dark:hover:border-amber-500/60'
+          }`}
+          title="Filter important notices"
+        >
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
               Important Notices
             </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/40 uppercase">
-              Medium
+            <span className="text-amber-500 dark:text-amber-400 group-hover:scale-110 transition-transform">
+              <Clock className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-baseline justify-between w-full">
             <div className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 font-sans">
               {importantCount}
             </div>
+            <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+              <span>Filter</span>
+              <ArrowRight className="w-3 h-3" />
+            </span>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Modular Custom Category Cards */}
@@ -771,6 +842,7 @@ export const MailDashboard: React.FC<MailDashboardProps> = ({
                 onStatusChange={onStatusChange}
                 onCategoryChange={onCategoryChange}
                 onSnooze={onSnooze}
+                onDelete={onDeleteEmail}
               />
             ))}
           </div>

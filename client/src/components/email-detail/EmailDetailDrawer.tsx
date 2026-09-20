@@ -11,6 +11,7 @@ import {
   Tag,
   ChevronDown,
   Check,
+  Trash2,
 } from 'lucide-react';
 import {
   getPriorityTheme,
@@ -33,6 +34,7 @@ interface EmailDetailDrawerProps {
   onSnooze: (email: Email) => void;
   onFeedback: (emailId: string, action: 'thumbs_up' | 'thumbs_down') => void;
   onToggleTask?: (taskId: string, currentStatus: string) => void;
+  onDelete?: (emailId: string) => void;
 }
 
 export const EmailDetailDrawer: React.FC<EmailDetailDrawerProps> = ({
@@ -44,9 +46,16 @@ export const EmailDetailDrawer: React.FC<EmailDetailDrawerProps> = ({
   onCategoryChange,
   onSnooze,
   onFeedback,
+  onToggleTask,
+  onDelete,
 }) => {
   const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+  const [submittedFeedback, setSubmittedFeedback] = useState<'thumbs_up' | 'thumbs_down' | null>(null);
   const categoryPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSubmittedFeedback(null);
+  }, [email?.id]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -92,10 +101,10 @@ export const EmailDetailDrawer: React.FC<EmailDetailDrawerProps> = ({
         <div className="p-4 border-b border-slate-200/80 dark:border-[#1e2230] flex items-center justify-between bg-slate-50/60 dark:bg-[#12141c]">
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full border ${priorityTheme.badgeClass}`}
+              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border ${priorityTheme.badgeClass}`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${priorityTheme.dot}`} />
-              {priorityLabel} Priority ({email.priorityScore.toFixed(1)} pts)
+              {priorityLabel} Priority
             </span>
 
             {/* Interactive Category Selector */}
@@ -213,10 +222,12 @@ export const EmailDetailDrawer: React.FC<EmailDetailDrawerProps> = ({
               </div>
               <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
                 {new Date(email.receivedAt).toLocaleString(undefined, {
+                  weekday: 'short',
                   month: 'short',
                   day: 'numeric',
-                  hour: '2-digit',
+                  hour: 'numeric',
                   minute: '2-digit',
+                  hour12: true,
                 })}
               </div>
             </div>
@@ -304,24 +315,56 @@ export const EmailDetailDrawer: React.FC<EmailDetailDrawerProps> = ({
         {/* Footer Quick Action Bar */}
         <div className="p-4 border-t border-slate-200/80 dark:border-[#1e2230] bg-slate-50/60 dark:bg-[#12141c] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400">Score accurate?</span>
-            <button
-              onClick={() => onFeedback(email.id, 'thumbs_up')}
-              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-[#151722] text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs"
-              title="Accurate"
-            >
-              👍 Yes
-            </button>
-            <button
-              onClick={() => onFeedback(email.id, 'thumbs_down')}
-              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-[#151722] text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs"
-              title="Inaccurate"
-            >
-              👎 No
-            </button>
+            {submittedFeedback ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-400 text-xs font-semibold animate-in fade-in zoom-in-95 duration-150">
+                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Feedback recorded</span>
+              </span>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-slate-400">Score accurate?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmittedFeedback('thumbs_up');
+                    onFeedback(email.id, 'thumbs_up');
+                  }}
+                  className="px-2 py-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Accurate"
+                >
+                  👍 Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmittedFeedback('thumbs_down');
+                    onFeedback(email.id, 'thumbs_down');
+                  }}
+                  className="px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Inaccurate"
+                >
+                  👎 No
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDelete(email.id);
+                  onClose();
+                }}
+                className="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Delete email permanently"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 onStatusChange(email.id, email.status === 'read' ? 'unread' : 'read');

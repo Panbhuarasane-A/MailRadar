@@ -1,7 +1,7 @@
 {
-  "name": "mailradar-monorepo",
+  "name": "mailhinge-monorepo",
   "version": "1.0.0",
-  "description": "MailRadar — AI-Powered Email Intelligence & Action Management System",
+  "description": "MailHinge — AI-Powered Email Intelligence & Action Management System",
   "scripts": {
     "dev": "npm run server:dev",
     "server:dev": "npm run dev --prefix server",
@@ -17,6 +17,6 @@
     "deploy:prod": "npm run build && npm run start"
   },
   "keywords": ["ai", "email", "productivity", "action-centric", "claude", "radar", "inbox"],
-  "author": "MailRadar Team",
+  "author": "MailHinge Team",
   "license": "MIT"
 }

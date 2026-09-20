@@ -2,8 +2,8 @@ import { prisma } from '../../config/prisma';
 
 export interface FeedbackSubmission {
   userId: string;
-  emailId: string;
-  action: 'thumbs_up' | 'thumbs_down' | 'manual_override';
+  emailId?: string;
+  action: 'thumbs_up' | 'thumbs_down' | 'manual_override' | 'direct_feedback' | 'bug_report' | 'feature_request' | string;
   overrideTier?: 'hotspot' | 'important' | 'normal' | 'low';
   comments?: string;
 }
@@ -17,12 +17,16 @@ export class FeedbackEngine {
     const savedFeedback = await prisma.userFeedback.create({
       data: {
         userId: feedback.userId,
-        emailId: feedback.emailId,
+        emailId: feedback.emailId || null,
         action: feedback.action,
         overrideTier: feedback.overrideTier || null,
         comments: feedback.comments || null,
       },
     });
+
+    if (!feedback.emailId) {
+      return savedFeedback;
+    }
 
     // 2. Fetch associated email
     const email = await prisma.email.findUnique({

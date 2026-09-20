@@ -19,11 +19,12 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '../../types';
 
-export type AppSection = 'mail' | 'telegram';
+export type AppSection = 'mail' | 'telegram' | 'admin';
 
 interface TopNavProps {
   currentSection: AppSection;
   onSectionChange: (section: AppSection) => void;
+  onNavigateHome?: () => void;
   mailCount: number;
   telegramCount: number;
   searchQuery: string;
@@ -48,6 +49,7 @@ interface TopNavProps {
 export const TopNav: React.FC<TopNavProps> = ({
   currentSection,
   onSectionChange,
+  onNavigateHome,
   mailCount,
   telegramCount,
   searchQuery,
@@ -81,12 +83,13 @@ export const TopNav: React.FC<TopNavProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const userName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Panbhuarasane';
-  const userEmail = currentUser?.email || 'panbhuofficial@gmail.com';
+  const userName = currentUser?.name || currentUser?.email?.split('@')[0] || 'User';
+  const userEmail = currentUser?.email || '';
   const userInitial = userName.charAt(0).toUpperCase();
+  const isAdmin = currentUser?.role === 'admin' || userEmail.toLowerCase().includes('admin');
 
   // Filter out any dummy emails from real accounts
-  const dummyFilter = ['alex.chen@mailradar.ai', 'elena.rostova@finance-exec.com', 'testuser@example.com'];
+  const dummyFilter = ['alex.chen@mailhinge.ai', 'elena.rostova@finance-exec.com', 'testuser@example.com'];
   const realOtherUsers = availableUsers.filter(
     (u) => u.email.toLowerCase() !== userEmail.toLowerCase() && !dummyFilter.includes(u.email.toLowerCase())
   );
@@ -107,69 +110,81 @@ export const TopNav: React.FC<TopNavProps> = ({
           </button>
         )}
 
-        <div className="flex items-center gap-2 sm:gap-2.5 group cursor-pointer">
+        <div 
+          onClick={() => {
+            if (onNavigateHome) {
+              onNavigateHome();
+            } else {
+              onSectionChange('mail');
+            }
+          }}
+          className="flex items-center gap-2 sm:gap-2.5 group cursor-pointer"
+          title="Go to Dashboard"
+        >
           <div className="w-8 h-8 rounded-xl overflow-hidden bg-black border border-orange-500/30 shadow-[0_0_12px_rgba(249,115,22,0.35)] flex-shrink-0 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-2">
             <img
-              src="/mailo-logo.jpg"
-              alt="Mailo AI Logo"
+              src="/mailhinge-logo.jpg"
+              alt="Mail Hinge AI Logo"
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="text-base font-extrabold text-slate-900 dark:text-slate-100 tracking-tight font-sans flex items-center gap-1">
-            <span>Mailo</span>
+          <div className="text-base font-extrabold text-slate-900 dark:text-slate-100 tracking-tight font-sans flex items-center gap-1 select-none">
+            <span>Mail Hinge</span>
             <span className="text-orange-500 font-black">AI</span>
             <span className="text-amber-400 text-xs">✦</span>
           </div>
         </div>
 
-        {/* Workspace Switcher: Mail vs Telegram */}
-        <div className="flex items-center p-0.5 sm:p-1 bg-slate-100/90 dark:bg-[#13151f] rounded-xl border border-slate-200/60 dark:border-[#222636]">
-          <button
-            onClick={() => onSectionChange('mail')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all duration-200 ${
-              currentSection === 'mail'
-                ? 'bg-white dark:bg-[#1e2230] text-blue-600 dark:text-orange-400 shadow-xs border border-slate-200/80 dark:border-orange-500/30 font-bold scale-[1.02]'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Mail className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
-            <span>Mail</span>
-            {mailCount > 0 && (
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-all ${
-                  currentSection === 'mail'
-                    ? 'bg-blue-100 dark:bg-orange-950/60 text-blue-700 dark:text-orange-300'
-                    : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                {mailCount}
-              </span>
-            )}
-          </button>
+        {/* Workspace Switcher: Mail vs Telegram for standard users */}
+        {!isAdmin && (
+          <div className="flex items-center p-0.5 sm:p-1 bg-slate-100/90 dark:bg-[#13151f] rounded-xl border border-slate-200/60 dark:border-[#222636]">
+            <button
+              onClick={() => onSectionChange('mail')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all duration-200 ${
+                currentSection === 'mail'
+                  ? 'bg-white dark:bg-[#1e2230] text-blue-600 dark:text-orange-400 shadow-xs border border-slate-200/80 dark:border-orange-500/30 font-bold scale-[1.02]'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
+              <span>Mail</span>
+              {mailCount > 0 && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-all ${
+                    currentSection === 'mail'
+                      ? 'bg-blue-100 dark:bg-orange-950/60 text-blue-700 dark:text-orange-300'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  {mailCount}
+                </span>
+              )}
+            </button>
 
-          <button
-            onClick={() => onSectionChange('telegram')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all duration-200 ${
-              currentSection === 'telegram'
-                ? 'bg-white dark:bg-[#1e2230] text-blue-600 dark:text-orange-400 shadow-xs border border-slate-200/80 dark:border-orange-500/30 font-bold scale-[1.02]'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Send className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
-            <span>Telegram</span>
-            {telegramCount > 0 && (
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-all ${
-                  currentSection === 'telegram'
-                    ? 'bg-blue-100 dark:bg-orange-950/60 text-blue-700 dark:text-orange-300'
-                    : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                {telegramCount}
-              </span>
-            )}
-          </button>
-        </div>
+            <button
+              onClick={() => onSectionChange('telegram')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all duration-200 ${
+                currentSection === 'telegram'
+                  ? 'bg-white dark:bg-[#1e2230] text-blue-600 dark:text-orange-400 shadow-xs border border-slate-200/80 dark:border-orange-500/30 font-bold scale-[1.02]'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <Send className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
+              <span>Telegram</span>
+              {telegramCount > 0 && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-all ${
+                    currentSection === 'telegram'
+                      ? 'bg-blue-100 dark:bg-orange-950/60 text-blue-700 dark:text-orange-300'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  {telegramCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right Controls */}
@@ -182,7 +197,9 @@ export const TopNav: React.FC<TopNavProps> = ({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={
-              currentSection === 'mail'
+              isAdmin || currentSection === 'admin'
+                ? 'Search users, feedbacks, API logs...'
+                : currentSection === 'mail'
                 ? 'Trace email, sender, company...'
                 : 'Trace Telegram job alerts...'
             }
@@ -198,24 +215,24 @@ export const TopNav: React.FC<TopNavProps> = ({
           title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
           aria-label="Toggle theme"
         >
-          {/* Track background icons for context */}
+          {/* Track background icons for context: Sun on left, Moon on right */}
           <div className="w-full flex items-center justify-between px-1 text-[11px] pointer-events-none">
-            <Sun className={`w-3.5 h-3.5 transition-opacity duration-200 ${theme === 'light' ? 'text-amber-500 opacity-100' : 'text-slate-500 opacity-40'}`} />
-            <Moon className={`w-3.5 h-3.5 transition-opacity duration-200 ${theme === 'dark' ? 'text-indigo-400 opacity-100' : 'text-slate-400 opacity-40'}`} />
+            <Sun className={`w-3.5 h-3.5 transition-opacity duration-200 ${theme === 'light' ? 'text-amber-500 opacity-100' : 'text-slate-400 opacity-60'}`} />
+            <Moon className={`w-3.5 h-3.5 transition-opacity duration-200 ${theme === 'dark' ? 'text-indigo-400 opacity-100' : 'text-slate-400 opacity-60'}`} />
           </div>
 
           {/* Smooth Sliding Pill Thumb */}
           <div
-            className={`absolute top-0.5 bottom-0.5 w-6 h-6 rounded-full flex items-center justify-center bg-white dark:bg-[#222738] shadow-sm transform transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-active:scale-90 ${
+            className={`absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center bg-white dark:bg-[#222738] shadow-sm transform transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-active:scale-90 ${
               theme === 'dark'
-                ? 'translate-x-6.5 text-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.3)]'
+                ? 'translate-x-6 text-indigo-400 dark:text-orange-400 shadow-[0_0_10px_rgba(129,140,248,0.3)]'
                 : 'translate-x-0 text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
             }`}
           >
             {theme === 'dark' ? (
-              <Moon className="w-3.5 h-3.5 rotate-0 transition-transform duration-300 group-hover:-rotate-12" />
+              <Moon className="w-3.5 h-3.5 rotate-0 transition-transform duration-300 group-hover:-rotate-12 text-indigo-400 dark:text-orange-400" />
             ) : (
-              <Sun className="w-3.5 h-3.5 rotate-0 transition-transform duration-300 group-hover:rotate-45" />
+              <Sun className="w-3.5 h-3.5 rotate-0 transition-transform duration-300 group-hover:rotate-45 text-amber-500" />
             )}
           </div>
         </button>
@@ -225,7 +242,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           onClick={onSync}
           disabled={isSyncing}
           className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#222636] bg-white dark:bg-[#141620] hover:bg-slate-50 dark:hover:bg-[#1c1f2e] text-slate-700 dark:text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 shadow-2xs"
-          title="Synchronize real mailbox and channels"
+          title="Synchronize real mailbox and telemetry"
         >
           <RotateCcw
             className={`w-3.5 h-3.5 text-slate-500 dark:text-slate-400 ${
@@ -235,8 +252,8 @@ export const TopNav: React.FC<TopNavProps> = ({
           <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync'}</span>
         </button>
 
-        {/* Interactive Tutorial Tour Button */}
-        {onOpenTutorial && (
+        {/* Interactive Tutorial Tour Button (Only for standard users) */}
+        {!isAdmin && onOpenTutorial && (
           <button
             onClick={onOpenTutorial}
             className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all hover:scale-102 active:scale-95 shadow-2xs group"
@@ -256,14 +273,16 @@ export const TopNav: React.FC<TopNavProps> = ({
           <Settings className="w-4 h-4" />
         </button>
 
-        {/* Connect Real Mailbox Shortcut */}
-        <button
-          onClick={onOpenConnectMailbox}
-          className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-orange-950/40 border border-blue-200 dark:border-orange-500/30 text-blue-700 dark:text-orange-300 text-xs font-semibold hover:bg-blue-100 dark:hover:bg-orange-900/40 transition-colors"
-        >
-          <Mail className="w-3.5 h-3.5" />
-          <span>Connect Email</span>
-        </button>
+        {/* Connect Real Mailbox Shortcut (Only for standard users) */}
+        {!isAdmin && (
+          <button
+            onClick={onOpenConnectMailbox}
+            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-orange-950/40 border border-blue-200 dark:border-orange-500/30 text-blue-700 dark:text-orange-300 text-xs font-semibold hover:bg-blue-100 dark:hover:bg-orange-900/40 transition-colors"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span>Connect Email</span>
+          </button>
+        )}
 
         {/* Interactive User Profile Menu */}
         <div className="relative" ref={dropdownRef}>
@@ -272,7 +291,7 @@ export const TopNav: React.FC<TopNavProps> = ({
             className="flex items-center gap-1.5 pl-2.5 sm:pl-3 border-l border-slate-200 dark:border-[#1e2230] hover:opacity-80 transition-opacity"
             title="User Profile & Settings"
           >
-            <div className="w-8 h-8 rounded-xl bg-blue-600 dark:bg-gradient-to-br dark:from-orange-500 dark:to-orange-600 text-white flex items-center justify-center font-bold text-xs shadow-xs flex-shrink-0">
+            <div className={`w-8 h-8 rounded-xl ${isAdmin ? 'bg-gradient-to-br from-rose-600 to-red-700 ring-2 ring-rose-500/50' : 'bg-blue-600 dark:bg-gradient-to-br dark:from-orange-500 dark:to-orange-600'} text-white flex items-center justify-center font-bold text-xs shadow-xs flex-shrink-0`}>
               {userInitial}
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -284,7 +303,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               {/* Active Profile Header */}
               <div className="px-4 py-3 border-b border-slate-100 dark:border-[#1e2230]">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-600 dark:bg-gradient-to-br dark:from-orange-500 dark:to-orange-600 text-white font-bold flex items-center justify-center text-sm shadow-xs flex-shrink-0">
+                  <div className={`w-10 h-10 rounded-2xl ${isAdmin ? 'bg-gradient-to-br from-rose-600 to-red-700' : 'bg-blue-600 dark:bg-gradient-to-br dark:from-orange-500 dark:to-orange-600'} text-white font-bold flex items-center justify-center text-sm shadow-xs flex-shrink-0`}>
                     {userInitial}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -292,18 +311,25 @@ export const TopNav: React.FC<TopNavProps> = ({
                       {userName}
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono truncate">{userEmail}</div>
-                    <div className="mt-1 flex items-center gap-1">
-                      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.2 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
-                        <span>Active Account</span>
-                      </span>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      {isAdmin ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.2 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                          <ShieldCheck className="w-2.5 h-2.5 text-rose-500" />
+                          <span>Admin Portal</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.2 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+                          <span>Active Account</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Real Other Registered Accounts (if any) */}
-              {realOtherUsers.length > 0 && onQuickSwitchUser && (
+              {/* Real Other Registered Accounts (Only visible to System Admin) */}
+              {isAdmin && realOtherUsers.length > 0 && onQuickSwitchUser && (
                 <div className="p-2 border-b border-slate-100 dark:border-[#1e2230]">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
                     Other Accounts
@@ -333,6 +359,20 @@ export const TopNav: React.FC<TopNavProps> = ({
 
               {/* Navigation & Actions */}
               <div className="p-2 space-y-1">
+                {/* Admin Dashboard Switch (Strictly for Administrators) */}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      setIsUserDropdownOpen(false);
+                      onSectionChange('admin');
+                    }}
+                    className="w-full px-2.5 py-2 rounded-xl text-left text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2.5 transition-colors"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-rose-500" />
+                    <span>Admin Intelligence Dashboard</span>
+                  </button>
+                )}
+
                 {onOpenTutorial && (
                   <button
                     onClick={() => {

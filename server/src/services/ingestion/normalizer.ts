@@ -57,7 +57,7 @@ export function normalizeEmail(raw: any, provider: 'gmail' | 'outlook' | 'simula
     provider: 'simulated',
     sender: raw.sender,
     senderName: raw.senderName,
-    recipient: raw.recipient || 'user@mailradar.internal',
+    recipient: raw.recipient || 'user@mailhinge.internal',
     subject: raw.subject || '(No Subject)',
     bodySnippet: raw.bodySnippet || raw.bodyFull?.slice(0, 160) || '',
     bodyFull: raw.bodyFull || raw.bodySnippet || '',

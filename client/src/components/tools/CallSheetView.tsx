@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Email } from '../../types';
 import { parseTelegramJob } from '../../utils/telegramJobParser';
 import { extractEmailActionLinks } from '../../utils/linkExtractor';
+import { isExcludedFromCalendar } from '../../utils/categoryClassifier';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -373,6 +374,11 @@ export function extractImportantDatesFromEmails(emails: Email[]): CalendarMailEv
   const seenKey = new Set<string>();
 
   emails.forEach((e) => {
+    // STRICT GUARD: Exclude OTP, security key, password reset, verification codes, spam, and advertisement emails
+    if (isExcludedFromCalendar(e)) {
+      return;
+    }
+
     const refDate = e.receivedAt ? new Date(e.receivedAt) : new Date();
     const company = extractCompany(e);
     const bodyCombined = `${e.subject}\n${e.actionSummary || ''}\n${e.reasoning || ''}\n${e.bodyFull || e.bodySnippet || ''}`;
@@ -414,14 +420,14 @@ export function extractImportantDatesFromEmails(emails: Email[]): CalendarMailEv
       return;
     }
 
-    // B. Explicit Email Deadline Field
+    // B. Explicit Email Deadline Field (only for genuine deadlines)
     if (e.deadline) {
       try {
         const d = new Date(e.deadline);
         if (!isNaN(d.getTime())) {
           const dateStr = formatDateToStr(d);
           const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          const key = `mail-deadline-${e.id}-${dateStr}`;
+          const key = `mail-${e.id}-${dateStr}`;
 
           if (!seenKey.has(key)) {
             seenKey.add(key);
@@ -485,61 +491,39 @@ export function extractImportantDatesFromEmails(emails: Email[]): CalendarMailEv
       });
     }
 
-    // D. Scan Email Body and Subject for Natural Dates & Interviews/Meetings
-    const datesInBody = extractDatesFromText(bodyCombined, refDate);
-    datesInBody.forEach((match) => {
-      const key = `mail-body-${e.id}-${match.dateStr}`;
-      if (!seenKey.has(key)) {
-        seenKey.add(key);
-        const category = detectEventCategory(bodyCombined, e.subject);
-        const timeStr = extractTimeFromText(bodyCombined);
+    // D. Scan Email Body and Subject for Natural Dates & Interviews/Meetings (only for legitimate events)
+    const isLikelyEventMail =
+      /(?:interview|assessment|hackathon|test|exam|deadline|drive|webinar|contest|submission|meeting|call|schedule|round|discussion|appointment)/i.test(bodyCombined);
 
-        events.push({
-          id: key,
-          emailId: e.id,
-          dateStr: match.dateStr,
-          timeStr,
-          title: company,
-          subtitle: e.subject,
-          source: 'mail',
-          category,
-          priority: e.priorityTier === 'hotspot' || e.priorityTier === 'urgent' ? 'urgent' : 'important',
-          applyUrl,
-          meetingLink: meetLink,
-          interviewer,
-          company,
-          completed: e.status === 'archived',
-          rawEmail: e,
-          sourceTextSnippet: match.snippet,
-        });
-      }
-    });
+    if (isLikelyEventMail) {
+      const datesInBody = extractDatesFromText(bodyCombined, refDate);
+      datesInBody.forEach((match) => {
+        const key = `mail-${e.id}-${match.dateStr}`;
+        if (!seenKey.has(key)) {
+          seenKey.add(key);
+          const category = detectEventCategory(bodyCombined, e.subject);
+          const timeStr = extractTimeFromText(bodyCombined);
 
-    // E. High Priority / Hotspot Emails that require immediate action
-    if ((e.priorityTier === 'hotspot' || e.priorityTier === 'urgent') && datesInBody.length === 0 && !e.deadline) {
-      const dateStr = formatDateToStr(refDate);
-      const key = `mail-urgent-${e.id}-${dateStr}`;
-      if (!seenKey.has(key)) {
-        seenKey.add(key);
-        events.push({
-          id: key,
-          emailId: e.id,
-          dateStr,
-          timeStr: extractTimeFromText(bodyCombined),
-          title: company,
-          subtitle: e.subject,
-          source: 'mail',
-          category: detectEventCategory(bodyCombined, e.subject),
-          priority: 'urgent',
-          applyUrl,
-          meetingLink: meetLink,
-          interviewer,
-          company,
-          completed: e.status === 'archived',
-          rawEmail: e,
-          sourceTextSnippet: 'Immediate Attention Required',
-        });
-      }
+          events.push({
+            id: key,
+            emailId: e.id,
+            dateStr: match.dateStr,
+            timeStr,
+            title: company,
+            subtitle: e.subject,
+            source: 'mail',
+            category,
+            priority: e.priorityTier === 'hotspot' || e.priorityTier === 'urgent' ? 'urgent' : 'important',
+            applyUrl,
+            meetingLink: meetLink,
+            interviewer,
+            company,
+            completed: e.status === 'archived',
+            rawEmail: e,
+            sourceTextSnippet: match.snippet,
+          });
+        }
+      });
     }
   });
 

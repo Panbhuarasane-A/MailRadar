@@ -18,7 +18,7 @@ import {
   MapPin,
   DollarSign,
   Layers,
-  ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 
 interface TelegramDashboardProps {
@@ -40,6 +40,7 @@ interface TelegramDashboardProps {
   onSelectMessage: (msg: Email) => void;
   onRefresh: () => void;
   onStatusChange?: (emailId: string, status: 'read' | 'unread' | 'archived') => void;
+  onRemoveChannel?: (handle: string) => void;
 }
 
 export const TelegramDashboard: React.FC<TelegramDashboardProps> = ({
@@ -55,31 +56,16 @@ export const TelegramDashboard: React.FC<TelegramDashboardProps> = ({
   onSelectMessage,
   onRefresh,
   onStatusChange,
+  onRemoveChannel,
 }) => {
   // Tabs: 'active' | 'completed'
   const [statusTab, setStatusTab] = useState<'active' | 'completed'>('active');
-  const [isVerifyingSites, setIsVerifyingSites] = useState(false);
 
   // Sort & Filter state
   const [sortBy, setSortBy] = useState<JobSortOption>('date-desc');
   const [locationFilter, setLocationFilter] = useState<JobLocationFilter>('all');
   const [salaryFilter, setSalaryFilter] = useState<JobSalaryFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
-
-  const handleVerifyAllSites = async () => {
-    setIsVerifyingSites(true);
-    try {
-      const res = await fetch('/api/telegram/verify-all', { method: 'POST' });
-      const json = await res.json();
-      if (json.success) {
-        onRefresh();
-      }
-    } catch (err) {
-      console.error('Failed to verify sites:', err);
-    } finally {
-      setIsVerifyingSites(false);
-    }
-  };
 
   // Filter for Telegram messages only
   const telegramMessages = emails.filter((e) => e.provider === 'telegram');
@@ -132,20 +118,35 @@ export const TelegramDashboard: React.FC<TelegramDashboardProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-orange-500/10 border border-blue-100 dark:border-orange-500/20 flex items-center justify-center text-blue-600 dark:text-orange-400">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-orange-500/10 border border-blue-100 dark:border-orange-500/20 flex items-center justify-center text-blue-600 dark:text-orange-400 flex-shrink-0">
                         <Send className="w-4 h-4" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
                           {ch.title || `@${ch.handle}`}
                         </h3>
                         <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">@{ch.handle}</div>
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 font-sans">
-                      {ch.messageCount} <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500">jobs</span>
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 font-sans">
+                        {ch.messageCount} <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500">jobs</span>
+                      </span>
+                      {onRemoveChannel && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveChannel(ch.handle);
+                          }}
+                          className="p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all cursor-pointer"
+                          title="Remove channel"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -220,17 +221,6 @@ export const TelegramDashboard: React.FC<TelegramDashboardProps> = ({
                   <option value="company-asc" className="dark:bg-[#151722] dark:text-slate-200">Company (A-Z)</option>
                 </select>
               </div>
-
-              {/* Verify Portals Button */}
-              <button
-                onClick={handleVerifyAllSites}
-                disabled={isVerifyingSites}
-                title="Verify employer career portals: auto-detects closed openings & updates deadlines"
-                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#1e2230] bg-white dark:bg-[#151722] hover:bg-slate-50 dark:hover:bg-[#1c2030] text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 shadow-2xs"
-              >
-                <ShieldCheck className={`w-3.5 h-3.5 text-blue-600 dark:text-orange-400 ${isVerifyingSites ? 'animate-spin' : ''}`} />
-                <span>{isVerifyingSites ? 'Verifying Portals...' : 'Verify Portals'}</span>
-              </button>
 
               {/* Toggle Filters Button */}
               <button

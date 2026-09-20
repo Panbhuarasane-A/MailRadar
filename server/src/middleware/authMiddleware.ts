@@ -1,4 +1,4 @@
-﻿import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, TokenPayload } from '../utils/jwt';
 import { prisma } from '../config/prisma';
 import { authService } from '../services/auth/authService';
@@ -96,3 +96,39 @@ export async function optionalAuth(
   }
   return next();
 }
+
+/**
+ * Strict Administrator-only authorization middleware
+ */
+export async function requireAdmin(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await authService.getUserFromRequest(req);
+    const isAdmin = user && (user.role === 'admin' || user.email === 'admin@mailhinge.ai' || user.email?.startsWith('admin@'));
+    
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Administrator privileges required.',
+        code: 'FORBIDDEN_ADMIN_ONLY',
+      });
+    }
+
+    req.user = {
+      userId: user.id,
+      email: user.email,
+      name: user.name || undefined,
+    };
+    return next();
+  } catch (err: any) {
+    return res.status(403).json({
+      success: false,
+      error: 'Access denied. Administrator privileges required.',
+      code: 'FORBIDDEN_ADMIN_ONLY',
+    });
+  }
+}
+

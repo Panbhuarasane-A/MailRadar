@@ -55,7 +55,7 @@ export const MailBot3D: React.FC<{ onExplore?: () => void }> = () => {
       y: 28,
       delay: '0s',
       icon: <Flame className="w-3.5 h-3.5 text-rose-400 animate-pulse" />,
-      score: '99 pts',
+      score: 'Hotspot',
     },
     {
       id: 'career-mail',
@@ -67,7 +67,7 @@ export const MailBot3D: React.FC<{ onExplore?: () => void }> = () => {
       y: 26,
       delay: '1.2s',
       icon: <Briefcase className="w-3.5 h-3.5 text-blue-400" />,
-      score: '96 pts',
+      score: 'High Priority',
     },
     {
       id: 'otp-mail',
@@ -79,7 +79,7 @@ export const MailBot3D: React.FC<{ onExplore?: () => void }> = () => {
       y: 72,
       delay: '2.1s',
       icon: <Key className="w-3.5 h-3.5 text-amber-400" />,
-      score: '91 pts',
+      score: 'Urgent',
     },
     {
       id: 'task-mail',
@@ -91,7 +91,7 @@ export const MailBot3D: React.FC<{ onExplore?: () => void }> = () => {
       y: 70,
       delay: '0.8s',
       icon: <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />,
-      score: '88 pts',
+      score: 'Action',
     },
   ];
 

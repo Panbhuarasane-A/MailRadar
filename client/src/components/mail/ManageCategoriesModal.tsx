@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { CustomCategory, Email } from '../../types';
+import { CustomCategory, Email, SenderProfile } from '../../types';
+import { api } from '../../services/api';
 import {
   X,
   Plus,
@@ -86,6 +87,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
 }) => {
   const [categoryList, setCategoryList] = useState<CustomCategory[]>(categories);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [apiSenders, setApiSenders] = useState<SenderProfile[]>([]);
 
   // Form State
   const [formName, setFormName] = useState('');
@@ -107,46 +109,172 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Extract unique domains & stats from received emails
+  // Fetch all registered senders from database when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      api.getSenders()
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setApiSenders(data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
+
+  // Automatically figure out ALL unique sender domains & stats across authentic received emails and registered senders
   const receivedDomainStats = useMemo(() => {
-    if (!emails || emails.length === 0) return [];
-    const map = new Map<string, { domain: string; senderName: string; sampleSender: string; count: number }>();
+    const map = new Map<
+      string,
+      { domain: string; senderName: string; sampleSender: string; count: number }
+    >();
 
-    for (const email of emails) {
-      if (!email.sender) continue;
-      // Extract clean email address
-      const emailMatch =
-        email.sender.match(/<([^>]+)>/) ||
-        email.sender.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-      const rawEmail = emailMatch ? emailMatch[1] : email.sender;
-      const atIdx = rawEmail.indexOf('@');
-      if (atIdx === -1) continue;
+    const BLACKLISTED_DOMAINS = new Set([
+      'unknown', 'telegram', 'localhost', 'mailhinge.ai', 'example.com',
+      't.me', 'telegram.org', 'telegram.me', 'whatsapp.com', 'wa.me',
+      'pdlink.in', 'openinapp.co', 'openinapp.link', 'bit.ly', 'tinyurl.com',
+      'youtu.be', 'youtube.com', 'instagram.com', 'facebook.com', 'twitter.com', 'x.com',
+      'placementdrive.in', 'job4freshers.co.in', 'job4freshers.co',
+      'placementdriveofficial', 'job4fresherss'
+    ]);
 
-      let domain = rawEmail.slice(atIdx + 1).toLowerCase().trim();
-      domain = domain.replace(/[^a-z0-9.-]/gi, '');
-      if (!domain || domain === 'unknown') continue;
+    const isValidDomain = (str: string): boolean => {
+      if (!str) return false;
+      const clean = str.toLowerCase().trim().replace(/^@/, '');
+      if (BLACKLISTED_DOMAINS.has(clean)) return false;
+      if (clean.includes('telegram') || clean.includes('whatsapp') || clean.includes('t.me')) return false;
+      // Must be a valid domain format with at least one dot and 2+ char TLD
+      return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$/i.test(clean);
+    };
 
-      const rawSenderName = email.senderName || email.sender.split('<')[0].trim().replace(/^["']|["']$/g, '');
-      const cleanSenderName = rawSenderName !== domain && rawSenderName !== rawEmail ? rawSenderName : '';
+    const getRootDomain = (domain: string): string | null => {
+      if (!domain) return null;
+      const clean = domain.toLowerCase().trim().replace(/^@/, '');
+      const parts = clean.split('.');
+      if (parts.length <= 2) return null;
 
-      const existing = map.get(domain);
+      const secondToLast = parts[parts.length - 2];
+      const last = parts[parts.length - 1];
+      const isTwoPartTld =
+        ['co', 'ac', 'edu', 'org', 'gov', 'net', 'com', 'res'].includes(secondToLast) &&
+        last.length === 2;
+
+      if (isTwoPartTld) {
+        if (parts.length > 3) {
+          return parts.slice(-3).join('.');
+        }
+        return null;
+      } else {
+        return parts.slice(-2).join('.');
+      }
+    };
+
+    const addDomain = (
+      rawDomain: string,
+      senderName: string,
+      sampleSender: string,
+      count: number = 1
+    ) => {
+      let clean = rawDomain.toLowerCase().trim().replace(/^@/, '');
+      clean = clean.replace(/[^a-z0-9.-]/gi, '').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
+      if (!clean || !isValidDomain(clean)) return;
+
+      const existing = map.get(clean);
       if (existing) {
-        existing.count += 1;
-        if (!existing.senderName && cleanSenderName) {
-          existing.senderName = cleanSenderName;
+        existing.count += count;
+        if (!existing.senderName && senderName) {
+          existing.senderName = senderName;
         }
       } else {
-        map.set(domain, {
-          domain,
-          senderName: cleanSenderName,
-          sampleSender: email.sender,
-          count: 1,
+        map.set(clean, {
+          domain: clean,
+          senderName: senderName || '',
+          sampleSender: sampleSender || `@${clean}`,
+          count: count,
         });
+      }
+    };
+
+    // 1. Process all received emails (exclude Telegram messages)
+    if (emails && emails.length > 0) {
+      for (const email of emails) {
+        if (!email.sender && !email.senderName) continue;
+
+        const sender = email.sender || '';
+        const senderName = email.senderName || '';
+        const isTelegram =
+          email.provider === 'telegram' ||
+          sender.includes('(Telegram Channel)') ||
+          sender.startsWith('@') ||
+          sender.includes('t.me/') ||
+          senderName.toLowerCase().includes('telegram');
+
+        if (isTelegram) continue; // Skip all Telegram sources
+
+        // Standard email address: user@domain.com or "Name" <user@domain.com>
+        const emailMatch =
+          sender.match(/<([^>]+)>/) ||
+          sender.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        const rawEmail = emailMatch ? emailMatch[1] : sender;
+        const atIdx = rawEmail.indexOf('@');
+        if (atIdx !== -1 && !rawEmail.startsWith('@')) {
+          let dom = rawEmail.slice(atIdx + 1).toLowerCase().trim();
+          dom = dom.replace(/[^a-z0-9.-]/gi, '').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
+          if (isValidDomain(dom)) {
+            const cleanSenderName =
+              senderName && senderName !== dom && senderName !== rawEmail ? senderName : '';
+            addDomain(dom, cleanSenderName, sender, 1);
+
+            const rootDom = getRootDomain(dom);
+            if (rootDom && rootDom !== dom) {
+              addDomain(rootDom, cleanSenderName, sender, 1);
+            }
+          }
+        }
       }
     }
 
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [emails]);
+    // 2. Process all sender profiles from database API (exclude Telegram)
+    if (apiSenders && apiSenders.length > 0) {
+      for (const sp of apiSenders) {
+        const sEmail = sp.senderEmail || '';
+        const sName = sp.senderName || '';
+        const count = sp.totalEmails || 1;
+        const isTelegram =
+          sEmail.includes('(Telegram Channel)') ||
+          sEmail.startsWith('@') ||
+          sEmail.includes('t.me/') ||
+          sEmail.includes('whatsapp') ||
+          sName.toLowerCase().includes('telegram');
+
+        if (isTelegram) continue;
+
+        // Sender Email address
+        const emailMatch =
+          sEmail.match(/<([^>]+)>/) ||
+          sEmail.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        const rawEmail = emailMatch ? emailMatch[1] : sEmail;
+        const atIdx = rawEmail.indexOf('@');
+        if (atIdx !== -1 && !rawEmail.startsWith('@')) {
+          let dom = rawEmail.slice(atIdx + 1).toLowerCase().trim();
+          dom = dom.replace(/[^a-z0-9.-]/gi, '').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
+          if (isValidDomain(dom)) {
+            addDomain(dom, sName, sEmail, count);
+            const rootDom = getRootDomain(dom);
+            if (rootDom && rootDom !== dom) {
+              addDomain(rootDom, sName, sEmail, count);
+            }
+          }
+        }
+      }
+    }
+
+    // Sort by email count descending, then alphabetically
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.domain.localeCompare(b.domain);
+    });
+  }, [emails, apiSenders]);
 
   // Extract frequent meaningful keywords from subjects
   const receivedKeywordSuggestions = useMemo(() => {
@@ -179,21 +307,19 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
       .map(([word]) => word);
   }, [emails]);
 
-  // Filter domain suggestions for dropdown
+  // Filter domain suggestions for dropdown - shows ALL figured domains in mailbox
   const filteredDomainSuggestions = useMemo(() => {
     const query = domainInput.trim().toLowerCase().replace(/^@/, '');
     const available = receivedDomainStats.filter((item) => !senderDomains.includes(item.domain));
     if (!query) {
-      return available.slice(0, 8);
+      return available; // Returns ALL available domains
     }
-    return available
-      .filter(
-        (item) =>
-          item.domain.toLowerCase().includes(query) ||
-          item.senderName.toLowerCase().includes(query) ||
-          item.sampleSender.toLowerCase().includes(query)
-      )
-      .slice(0, 8);
+    return available.filter(
+      (item) =>
+        item.domain.toLowerCase().includes(query) ||
+        item.senderName.toLowerCase().includes(query) ||
+        item.sampleSender.toLowerCase().includes(query)
+    );
   }, [receivedDomainStats, domainInput, senderDomains]);
 
   // Handle click outside to close dropdown
@@ -273,13 +399,14 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
   const handleAddDomain = (domainToAdd?: string) => {
     const raw = domainToAdd || domainInput;
     let trimmed = raw.trim().toLowerCase().replace(/^@/, '');
-    
+
     // Extract domain from full email address if entered
     if (trimmed.includes('@')) {
       trimmed = trimmed.split('@')[1];
     }
     // Remove protocol and path if entered as URL
     trimmed = trimmed.replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim();
+    trimmed = trimmed.replace(/[^a-z0-9.-]/gi, '').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
 
     if (!trimmed) return;
     if (!senderDomains.includes(trimmed)) {
@@ -624,12 +751,13 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                     <label className="block font-bold text-slate-700 dark:text-slate-300">
                       Sender Domains (Optional)
                     </label>
-                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md">
-                      Auto-suggestions active
+                    <span className="text-[10px] font-semibold text-blue-600 dark:text-orange-400 bg-blue-50 dark:bg-orange-500/10 border border-blue-200/60 dark:border-orange-500/20 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>{receivedDomainStats.length} domains detected</span>
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Emails from specific domains will match automatically. Type or choose from your received email senders below.
+                    Emails from specific domains will match automatically. Type or choose from all sender domains discovered in your mailbox below.
                   </p>
 
                   <div className="relative" ref={domainDropdownRef}>
@@ -666,21 +794,22 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                               setIsDomainDropdownOpen(false);
                             }
                           }}
-                          placeholder="e.g. devpost.com, haveloc.com, unstop.com"
+                          placeholder="e.g. haveloc.com, iitm.ac.in, careers.loreal-group.com, unstop.com, devpost.com"
                           className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-8 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                         />
                         <button
                           type="button"
                           onClick={() => setIsDomainDropdownOpen(!isDomainDropdownOpen)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                          title="Toggle domains dropdown"
                         >
-                          <ChevronDown className="w-3.5 h-3.5" />
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isDomainDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleAddDomain()}
-                        className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1 dark:bg-slate-700 dark:hover:bg-slate-600 shadow-2xs"
+                        className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1 dark:bg-orange-500 dark:hover:bg-orange-600 dark:text-slate-950 shadow-2xs transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Domain</span>
@@ -689,14 +818,17 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
 
                     {/* Auto-suggest Dropdown Menu */}
                     {isDomainDropdownOpen && (
-                      <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden py-1 max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                        <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30">
-                          <span>
-                            {domainInput
-                              ? `Matching Domains (${filteredDomainSuggestions.length})`
-                              : `Top Domains in Your Mailbox (${filteredDomainSuggestions.length})`}
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white dark:bg-[#12141c] border border-slate-200 dark:border-[#1e2230] rounded-2xl shadow-2xl overflow-hidden py-1 max-h-72 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                        <div className="px-3 py-2 text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-[#1e2230] bg-slate-50/70 dark:bg-[#0c0d12]">
+                          <span className="flex items-center gap-1.5 font-mono">
+                            <Globe className="w-3 h-3 text-blue-500 dark:text-orange-400" />
+                            <span>
+                              {domainInput
+                                ? `Matching Sender Domains (${filteredDomainSuggestions.length})`
+                                : `All Sender Domains in Your Mailbox (${filteredDomainSuggestions.length})`}
+                            </span>
                           </span>
-                          <span className="text-[9px] font-normal lowercase">click to add</span>
+                          <span className="text-[10px] font-medium text-slate-400">click to add</span>
                         </div>
 
                         {filteredDomainSuggestions.length > 0 ? (
@@ -708,55 +840,65 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                                 e.preventDefault();
                                 handleAddDomain(item.domain);
                               }}
-                              className={`w-full text-left px-3.5 py-2 flex items-center justify-between gap-3 text-xs transition-colors cursor-pointer group ${
+                              className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs transition-colors cursor-pointer group border-b border-slate-50 dark:border-[#161824] last:border-0 ${
                                 highlightedDomainIndex === index
-                                  ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
-                                  : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-800 dark:text-slate-200'
+                                  ? 'bg-blue-50/90 dark:bg-[#1c2030] text-blue-700 dark:text-orange-300'
+                                  : 'hover:bg-slate-50 dark:hover:bg-[#181a26] text-slate-800 dark:text-slate-200'
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-6 h-6 rounded-lg bg-blue-100/70 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 text-xs">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-7 h-7 rounded-xl bg-blue-100/80 dark:bg-[#1e2232] text-blue-600 dark:text-orange-400 flex items-center justify-center flex-shrink-0 text-xs font-bold border border-blue-200/50 dark:border-[#2a3044]">
                                   🌐
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="font-mono font-semibold text-xs text-blue-600 dark:text-blue-400 truncate">
-                                    @{item.domain}
+                                  <div className="font-mono font-bold text-xs text-blue-600 dark:text-orange-400 truncate flex items-center gap-1.5">
+                                    <span>@{item.domain}</span>
                                   </div>
                                   {item.senderName && (
-                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                    <div className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
                                       {item.senderName}
                                     </div>
                                   )}
+                                  {item.sampleSender &&
+                                    item.sampleSender !== `@${item.domain}` &&
+                                    item.sampleSender !== item.senderName && (
+                                      <div className="text-[10px] text-slate-400 dark:text-slate-400 truncate font-mono">
+                                        {item.sampleSender}
+                                      </div>
+                                    )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
-                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700">
+                                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#161824] text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-[#222636]">
                                   {item.count} {item.count === 1 ? 'mail' : 'mails'}
                                 </span>
-                                <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="text-xs font-bold text-blue-600 dark:text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity">
                                   + Add
                                 </span>
                               </div>
                             </button>
                           ))
                         ) : (
-                          <div className="px-3.5 py-3 text-center text-xs text-slate-400">
+                          <div className="px-4 py-4 text-center text-xs text-slate-400 space-y-2">
                             {domainInput ? (
                               <div>
-                                No exact matching domain found in received emails.
+                                <p className="text-slate-500 dark:text-slate-400">
+                                  No matching received domain found for "<span className="font-mono font-bold text-slate-700 dark:text-slate-300">{domainInput}</span>".
+                                </p>
                                 <button
                                   type="button"
                                   onMouseDown={(e) => {
                                     e.preventDefault();
                                     handleAddDomain();
                                   }}
-                                  className="text-blue-600 dark:text-blue-400 font-semibold underline ml-1 cursor-pointer"
+                                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 dark:bg-orange-500 text-white dark:text-slate-950 text-xs font-bold shadow-xs hover:opacity-90 cursor-pointer"
                                 >
-                                  Add "{domainInput.replace(/^@/, '')}"
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Add custom domain "@{domainInput.replace(/^@/, '')}"</span>
                                 </button>
                               </div>
                             ) : (
-                              'No received sender domains available.'
+                              <p>No sender domains discovered yet.</p>
                             )}
                           </div>
                         )}
@@ -764,27 +906,43 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                     )}
                   </div>
 
-                  {/* Quick Domain Suggestion Pills from Received Mail */}
+                  {/* Quick Domain Suggestion Pills from Discovered Mailbox Senders */}
                   {receivedDomainStats.filter((s) => !senderDomains.includes(s.domain)).length > 0 && (
-                    <div className="space-y-1 pt-1">
-                      <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-blue-500" />
-                        <span>Detected sender domains from your received emails:</span>
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
+                          <Sparkles className="w-3.5 h-3.5 text-blue-500 dark:text-orange-400" />
+                          <span>Discovered sender domains ({receivedDomainStats.filter((s) => !senderDomains.includes(s.domain)).length}):</span>
+                        </div>
+                        {receivedDomainStats.filter((s) => !senderDomains.includes(s.domain)).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const toAdd = receivedDomainStats
+                                .map((s) => s.domain)
+                                .filter((d) => !senderDomains.includes(d));
+                              setSenderDomains([...senderDomains, ...toAdd]);
+                            }}
+                            className="text-[10px] font-bold text-blue-600 dark:text-orange-400 hover:underline cursor-pointer"
+                          >
+                            + Add all discovered
+                          </button>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {receivedDomainStats
                           .filter((s) => !senderDomains.includes(s.domain))
-                          .slice(0, 6)
+                          .slice(0, 10)
                           .map((s) => (
                             <button
                               key={s.domain}
                               type="button"
                               onClick={() => handleAddDomain(s.domain)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 hover:border-blue-400 transition-all cursor-pointer shadow-2xs"
-                              title={`Found ${s.count} email(s) from @${s.domain}${s.senderName ? ` (${s.senderName})` : ''}`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono bg-blue-50/80 dark:bg-[#161824] text-blue-700 dark:text-orange-300 border border-blue-200/80 dark:border-[#222636] hover:bg-blue-100 dark:hover:bg-[#1e2232] hover:border-blue-400 dark:hover:border-orange-500/50 transition-all cursor-pointer shadow-2xs group"
+                              title={`Found ${s.count} mail(s) from @${s.domain}${s.senderName ? ` (${s.senderName})` : ''}`}
                             >
                               <span>+ @{s.domain}</span>
-                              <span className="text-[9px] px-1 py-0.2 rounded-full bg-blue-200/60 dark:bg-blue-900/80 text-blue-800 dark:text-blue-200 font-sans font-bold">
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-blue-200/70 dark:bg-[#222636] text-blue-900 dark:text-orange-200 font-sans font-bold">
                                 {s.count}
                               </span>
                             </button>
@@ -801,13 +959,13 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                       senderDomains.map((dom) => (
                         <span
                           key={dom}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 text-xs font-mono shadow-2xs"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50/80 dark:bg-[#161824] border border-blue-200/80 dark:border-[#222636] text-blue-700 dark:text-orange-400 text-xs font-mono shadow-2xs"
                         >
                           <span>@{dom}</span>
                           <button
                             type="button"
                             onClick={() => handleRemoveDomain(dom)}
-                            className="text-slate-400 hover:text-red-500 transition-colors"
+                            className="text-slate-400 hover:text-red-500 transition-colors ml-0.5"
                           >
                             ×
                           </button>

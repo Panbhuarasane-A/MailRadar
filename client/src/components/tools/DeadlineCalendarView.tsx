@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Email } from '../../types';
 import { parseTelegramJob } from '../../utils/telegramJobParser';
 import { extractEmailActionLinks } from '../../utils/linkExtractor';
+import { isExcludedFromCalendar } from '../../utils/categoryClassifier';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -46,6 +47,11 @@ export const DeadlineCalendarView: React.FC<DeadlineCalendarViewProps> = ({
   const events: DeadlineEvent[] = [];
 
   emails.forEach((e) => {
+    // STRICT GUARD: Exclude OTP, security key, password reset, spam, and advertisement emails
+    if (isExcludedFromCalendar(e)) {
+      return;
+    }
+
     if (e.provider === 'telegram') {
       const job = parseTelegramJob(
         e.bodyFull || e.bodySnippet || e.subject,
@@ -79,25 +85,26 @@ export const DeadlineCalendarView: React.FC<DeadlineCalendarViewProps> = ({
         completed: e.status === 'archived',
       });
     } else {
-      // Mail email
-      if (e.deadline || e.priorityTier === 'hotspot' || e.priorityTier === 'urgent') {
-        const dStr = e.deadline
-          ? new Date(e.deadline).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0];
+      // Mail email with explicit deadline
+      if (e.deadline) {
+        try {
+          const d = new Date(e.deadline);
+          if (!isNaN(d.getTime())) {
+            const dStr = d.toISOString().split('T')[0];
 
-        events.push({
-          id: e.id,
-          title: e.senderName || e.sender.split('@')[0],
-          subtitle: e.subject,
-          source: 'mail',
-          dateStr: dStr,
-          deadlineText: e.deadline
-            ? new Date(e.deadline).toLocaleDateString()
-            : 'Immediate Action Required',
-          applyUrl: extractEmailActionLinks(e.bodyFull || e.bodySnippet)?.[0]?.url || null,
-          priority: e.priorityTier === 'hotspot' || e.priorityTier === 'urgent' ? 'urgent' : 'important',
-          completed: e.status === 'archived',
-        });
+            events.push({
+              id: e.id,
+              title: e.senderName || e.sender.split('@')[0],
+              subtitle: e.subject,
+              source: 'mail',
+              dateStr: dStr,
+              deadlineText: d.toLocaleDateString(),
+              applyUrl: extractEmailActionLinks(e.bodyFull || e.bodySnippet)?.[0]?.url || null,
+              priority: e.priorityTier === 'hotspot' || e.priorityTier === 'urgent' ? 'urgent' : 'important',
+              completed: e.status === 'archived',
+            });
+          }
+        } catch {}
       }
     }
   });

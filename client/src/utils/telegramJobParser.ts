@@ -199,8 +199,36 @@ export function parseTelegramJob(rawText: string, senderName: string = '', recei
   const text = preprocessTelegramText(rawText);
 
   // 1. Extract Apply Link & strip glued trailing words
-  const urlMatch = text.match(/https?:\/\/[^\s"'<>]+/);
-  const applyUrl = urlMatch ? cleanShortlinkUrl(urlMatch[0]) : null;
+  let applyUrl: string | null = null;
+  const explicitApplyMatch = text.match(
+    /(?:Apply Link|Direct Apply|Application Link|Registration Link|Official Link|Apply Here|Registration|Link)\s*:\s*(https?:\/\/[^\s"'<>]+)/i
+  );
+  if (explicitApplyMatch) {
+    applyUrl = cleanShortlinkUrl(explicitApplyMatch[1]);
+  }
+
+  if (!applyUrl) {
+    // Look for all URLs and prefer non-social links
+    const allUrls = text.match(/https?:\/\/[^\s"'<>]+/g) || [];
+    for (const u of allUrls) {
+      const cleaned = cleanShortlinkUrl(u);
+      if (
+        cleaned &&
+        !cleaned.includes('t.me/') &&
+        !cleaned.includes('telegram.me/') &&
+        !cleaned.includes('whatsapp.com/') &&
+        !cleaned.includes('instagram.com/')
+      ) {
+        applyUrl = cleaned;
+        break;
+      }
+    }
+  }
+
+  if (!applyUrl) {
+    const urlMatch = text.match(/https?:\/\/[^\s"'<>]+/);
+    applyUrl = urlMatch ? cleanShortlinkUrl(urlMatch[0]) : null;
+  }
 
   // Clean first line of symbols and emojis
   const firstLine = text.split('\n')[0] || '';

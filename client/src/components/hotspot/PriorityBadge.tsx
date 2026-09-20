@@ -13,7 +13,7 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({
   tier,
   score,
   size = 'md',
-  showScore = true,
+  showScore = false,
 }) => {
   const getBadgeConfig = () => {
     switch (tier) {
@@ -67,11 +67,6 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({
     >
       {config.icon}
       <span className={config.textColor}>{config.label}</span>
-      {showScore && score !== undefined && (
-        <span className="ml-1 px-1.5 py-0.2 bg-black/40 rounded-full text-[10px] font-mono opacity-90">
-          {Math.round(score)}
-        </span>
-      )}
     </div>
   );
 };

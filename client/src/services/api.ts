@@ -9,6 +9,11 @@ import {
   SensitivityLevel,
   UserProfile,
   CustomCategory,
+  AdminDashboardMetrics,
+  AdminFeedbackItem,
+  AdminUserItem,
+  AdminApiLogItem,
+  UserFeedback,
 } from '../types';
 
 const API_BASE = '/api';
@@ -16,18 +21,27 @@ const API_BASE = '/api';
 // Manage active user locally
 export const authStorage = {
   getActiveUserEmail(): string {
-    return localStorage.getItem('mailradar_user_email') || 'panbhuofficial@gmail.com';
+    return localStorage.getItem('mailhinge_user_email') || localStorage.getItem('mailradar_user_email') || '';
   },
   setActiveUserEmail(email: string) {
-    localStorage.setItem('mailradar_user_email', email.toLowerCase().trim());
+    if (!email) {
+      localStorage.removeItem('mailhinge_user_email');
+      localStorage.removeItem('mailradar_user_email');
+    } else {
+      localStorage.setItem('mailhinge_user_email', email.toLowerCase().trim());
+      localStorage.setItem('mailradar_user_email', email.toLowerCase().trim());
+    }
   },
   getActiveTheme(): 'dark' | 'light' {
-    return (localStorage.getItem('mailradar_theme') as 'dark' | 'light') || 'dark';
+    const t = localStorage.getItem('mailhinge_theme') || localStorage.getItem('mailradar_theme');
+    return (t as 'dark' | 'light') || 'dark';
   },
   setActiveTheme(theme: 'dark' | 'light') {
+    localStorage.setItem('mailhinge_theme', theme);
     localStorage.setItem('mailradar_theme', theme);
   },
   clearActiveUserEmail() {
+    localStorage.removeItem('mailhinge_user_email');
     localStorage.removeItem('mailradar_user_email');
   },
 };
@@ -49,7 +63,9 @@ function onRefreshed(success: boolean) {
 async function customFetch(input: string, init?: RequestInit, isRetry = false): Promise<Response> {
   const activeEmail = authStorage.getActiveUserEmail();
   const headers = new Headers(init?.headers || {});
-  headers.set('x-user-email', activeEmail);
+  if (activeEmail) {
+    headers.set('x-user-email', activeEmail);
+  }
 
   // Attach Double-Submit CSRF Token on mutating requests
   const method = (init?.method || 'GET').toUpperCase();
@@ -390,6 +406,13 @@ export const api = {
     return handleResponse<Email>(res);
   },
 
+  async deleteEmail(id: string): Promise<{ success: boolean; message?: string }> {
+    const res = await customFetch(`${API_BASE}/emails/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<{ success: boolean; message?: string }>(res);
+  },
+
   // Tasks (Action Center)
   async getTasks(status?: string): Promise<Task[]> {
     const query = status ? `?status=${status}` : '';
@@ -463,11 +486,57 @@ export const api = {
   },
 
   // Feedback
-  async submitFeedback(emailId: string, action: 'thumbs_up' | 'thumbs_down' | 'manual_override', overrideTier?: PriorityTier, comments?: string): Promise<void> {
+  async submitFeedback(
+    emailId?: string | null,
+    action: 'thumbs_up' | 'thumbs_down' | 'manual_override' | 'direct_feedback' | 'bug_report' | 'feature_request' | string = 'direct_feedback',
+    overrideTier?: PriorityTier,
+    comments?: string,
+    extra?: { subject?: string; category?: string }
+  ): Promise<void> {
     const res = await customFetch(`${API_BASE}/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailId, action, overrideTier, comments }),
+      body: JSON.stringify({
+        emailId: emailId || undefined,
+        action,
+        overrideTier,
+        comments,
+        subject: extra?.subject,
+        category: extra?.category,
+      }),
+    });
+    return handleResponse(res);
+  },
+
+  async sendFeedbackToAdmin(data: {
+    category: 'general' | 'bug_report' | 'feature_request' | 'accuracy_issue' | 'other';
+    subject: string;
+    message: string;
+    rating?: number;
+    emailId?: string;
+  }): Promise<any> {
+    const res = await customFetch(`${API_BASE}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        emailId: data.emailId || undefined,
+        action: data.category === 'bug_report' ? 'bug_report' : data.category === 'feature_request' ? 'feature_request' : 'direct_feedback',
+        subject: data.subject,
+        category: data.category,
+        comments: data.rating ? `[Rating: ${data.rating}/5 stars] ${data.message}` : data.message,
+      }),
+    });
+    return handleResponse(res);
+  },
+
+  async getUserFeedbacks(): Promise<UserFeedback[]> {
+    const res = await customFetch(`${API_BASE}/feedback`);
+    return handleResponse<UserFeedback[]>(res);
+  },
+
+  async deleteFeedback(id: string): Promise<void> {
+    const res = await customFetch(`${API_BASE}/feedback/${id}`, {
+      method: 'DELETE',
     });
     return handleResponse(res);
   },
@@ -544,5 +613,26 @@ export const api = {
       method: 'POST',
     });
     return handleResponse(res);
+  },
+
+  // Admin Intelligence Dashboard & Feedback Review Hub
+  async getAdminMetrics(): Promise<AdminDashboardMetrics> {
+    const res = await customFetch(`${API_BASE}/admin/metrics`);
+    return handleResponse<AdminDashboardMetrics>(res);
+  },
+
+  async getAdminFeedbacks(): Promise<AdminFeedbackItem[]> {
+    const res = await customFetch(`${API_BASE}/admin/feedbacks`);
+    return handleResponse<AdminFeedbackItem[]>(res);
+  },
+
+  async getAdminUsers(): Promise<AdminUserItem[]> {
+    const res = await customFetch(`${API_BASE}/admin/users`);
+    return handleResponse<AdminUserItem[]>(res);
+  },
+
+  async getAdminApiUsage(): Promise<AdminApiLogItem[]> {
+    const res = await customFetch(`${API_BASE}/admin/api-usage`);
+    return handleResponse<AdminApiLogItem[]>(res);
   },
 };

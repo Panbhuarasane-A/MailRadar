@@ -11,6 +11,8 @@ export interface ResolvedLinkResult {
 export class LinkBypassService {
   private knownAtsDomains = [
     'myworkdayjobs.com',
+    'myworkday.com',
+    'workday.com',
     'greenhouse.io',
     'lever.co',
     'smartrecruiters.com',
@@ -33,6 +35,19 @@ export class LinkBypassService {
     'foundit.in',
     'hirist.tech',
     'wellfound.com',
+    'eightfold.ai',
+    'icims.com',
+    'oraclecloud.com',
+    'successfactors.com',
+    'ashbyhq.com',
+    'bamboohr.com',
+    'jobvite.com',
+    'ripplehire.com',
+    'phenompeople.com',
+    'metacareers.com',
+    'careers.google.com',
+    'careers.microsoft.com',
+    'jobs.apple.com',
   ];
 
   public static cleanShortlinkUrl(rawUrl: string): string {
@@ -70,7 +85,7 @@ export class LinkBypassService {
       console.log(`[LinkBypassService] Resolving and bypassing link: ${url}`);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const res = await fetch(url, {
         signal: controller.signal,
@@ -107,32 +122,56 @@ export class LinkBypassService {
       let bestDirectLink: string | null = null;
       let targetPlatform: string = 'Official Application Portal';
 
-      // 2. Scan all <a> anchor tags for direct application buttons & links
-      $('a').each((_, el) => {
-        const href = $(el).attr('href');
+      // 2. Check meta-refresh tags
+      const metaRefresh = $('meta[http-equiv="refresh" i]').attr('content');
+      if (metaRefresh) {
+        const refreshUrlMatch = metaRefresh.match(/url=['"]?([^'"\s;]+)/i);
+        if (refreshUrlMatch && refreshUrlMatch[1]) {
+          const targetUrl = refreshUrlMatch[1];
+          if (targetUrl.startsWith('http')) {
+            console.log(`[LinkBypassService] Meta-refresh redirect found: ${targetUrl}`);
+            return this.resolveDirectApplyLink(targetUrl, emailId);
+          }
+        }
+      }
+
+      // 3. Scan all <a> and <button> tags for direct application buttons & links
+      $('a, button').each((_, el) => {
+        const href = $(el).attr('href') || $(el).attr('data-href') || $(el).attr('data-url') || $(el).attr('onclick');
         const text = $(el).text().trim().toLowerCase();
         const title = ($(el).attr('title') || '').toLowerCase();
         const className = ($(el).attr('class') || '').toLowerCase();
+        const id = ($(el).attr('id') || '').toLowerCase();
 
         if (
           !href ||
           href.startsWith('#') ||
-          href.startsWith('javascript:') ||
           href.startsWith('mailto:') ||
           href.startsWith('tel:')
         ) {
           return;
         }
 
+        // If onclick has window.open or location.href
+        let actualHref = href;
+        if (href.startsWith('javascript:') || href.includes('window.open') || href.includes('location.href')) {
+          const scriptUrlMatch = href.match(/(?:window\.open\(|location\.href\s*=\s*)['"](https?:\/\/[^'"]+)['"]/i);
+          if (scriptUrlMatch && scriptUrlMatch[1]) {
+            actualHref = scriptUrlMatch[1];
+          } else {
+            return;
+          }
+        }
+
         // Ignore social share / telegram / whatsapp channels
         if (
-          href.includes('t.me/') ||
-          href.includes('telegram.me/') ||
-          href.includes('whatsapp.com/') ||
-          href.includes('linkedin.com/sharing') ||
-          href.includes('twitter.com/') ||
-          href.includes('facebook.com/') ||
-          href.includes('instagram.com/')
+          actualHref.includes('t.me/') ||
+          actualHref.includes('telegram.me/') ||
+          actualHref.includes('whatsapp.com/') ||
+          actualHref.includes('linkedin.com/sharing') ||
+          actualHref.includes('twitter.com/') ||
+          actualHref.includes('facebook.com/') ||
+          actualHref.includes('instagram.com/')
         ) {
           return;
         }
@@ -148,29 +187,48 @@ export class LinkBypassService {
           text.includes('registration link') ||
           text.includes('register here') ||
           title.includes('apply') ||
-          className.includes('apply');
+          className.includes('apply') ||
+          id.includes('apply');
 
-        const matchedAts = this.knownAtsDomains.find((d) => href.includes(d));
+        const matchedAts = this.knownAtsDomains.find((d) => actualHref.includes(d));
 
         if (matchedAts || isApplyText) {
           try {
             const landingHost = new URL(finalLandingUrl).hostname;
-            const linkHost = new URL(href).hostname;
+            const linkHost = new URL(actualHref).hostname;
 
             // Prefer external links or known ATS domains
             if (matchedAts || linkHost !== landingHost) {
-              bestDirectLink = href;
+              bestDirectLink = actualHref;
               if (matchedAts) targetPlatform = matchedAts;
             } else if (!bestDirectLink && isApplyText) {
-              bestDirectLink = href;
+              bestDirectLink = actualHref;
             }
           } catch {
             if (!bestDirectLink && isApplyText) {
-              bestDirectLink = href;
+              bestDirectLink = actualHref;
             }
           }
         }
       });
+
+      // 4. Scan inline scripts for redirects or ATS URLs if not found yet
+      if (!bestDirectLink) {
+        $('script').each((_, el) => {
+          const scriptContent = $(el).html() || '';
+          if (scriptContent.includes('window.location') || scriptContent.includes('location.replace')) {
+            const match = scriptContent.match(/(?:window\.location(?:\.href)?\s*=\s*|location\.replace\()['"](https?:\/\/[^'"]+)['"]/i);
+            if (match && match[1]) {
+              const u = match[1];
+              const matchedAts = this.knownAtsDomains.find((d) => u.includes(d));
+              if (matchedAts || !u.includes(new URL(finalLandingUrl).hostname)) {
+                bestDirectLink = u;
+                if (matchedAts) targetPlatform = matchedAts;
+              }
+            }
+          }
+        });
+      }
 
       if (bestDirectLink) {
         console.log(`[LinkBypassService] Successfully bypassed to direct application URL: ${bestDirectLink}`);

@@ -85,7 +85,7 @@ export class RealMailboxService {
   }
 
   /**
-   * Fetches real recent emails from the mailbox and pushes them into MailRadar's AI pipeline
+   * Fetches real recent emails from the mailbox and pushes them into MailHinge's AI pipeline
    */
   public async syncInbox(
     userId: string,
@@ -151,7 +151,7 @@ export class RealMailboxService {
           const fromName = parsed?.from?.value?.[0]?.name || msg.envelope?.from?.[0]?.name || undefined;
           let bodyText = parsed?.text || '';
           if (!bodyText && parsed?.html) {
-            // Convert HTML to clean readable text
+            // Convert HTML to clean readable text for AI analysis
             bodyText = parsed.html
               .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
               .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
@@ -170,7 +170,7 @@ export class RealMailboxService {
               .replace(/\r\n/g, '\n')
               .replace(/\n{3,}/g, '\n\n')
               .trim();
-          } else {
+          } else if (bodyText) {
             // Also clean any leftover HTML or entities in parsed.text
             bodyText = bodyText
               .replace(/<br\s*[\/]?>/gi, '\n')
@@ -188,8 +188,14 @@ export class RealMailboxService {
               .replace(/\$\{BtnTxt\}\s*<\[\[\$\{BtnLink\}\]\]>/gi, '')
               .trim();
           }
-          const snippet = bodyText.slice(0, 300).replace(/\s+/g, ' ').trim();
-          const receivedDate = parsed.date || msg.internalDate || new Date();
+
+          const snippet = (bodyText || (parsed?.html ? parsed.html.replace(/<[^>]+>/g, ' ') : '')).slice(0, 300).replace(/\s+/g, ' ').trim();
+          const receivedDate = parsed?.date || msg.internalDate || new Date();
+
+          // Preserve authentic rich HTML in bodyFull if available
+          const fullBodyToStore = (parsed?.html && typeof parsed.html === 'string' && parsed.html.trim().length > 10)
+            ? parsed.html
+            : (bodyText || snippet);
 
           // 1. Persist raw email immediately
           const newEmail = await prisma.email.create({
@@ -202,7 +208,7 @@ export class RealMailboxService {
               recipient: config.email,
               subject,
               bodySnippet: snippet || '(Empty content)',
-              bodyFull: bodyText || snippet,
+              bodyFull: fullBodyToStore,
               receivedAt: receivedDate,
               status: 'unread',
               priorityTier: 'normal',
@@ -244,7 +250,7 @@ export class RealMailboxService {
       return {
         syncedCount: totalSynced,
         newCount: newEmailsCount,
-        message: `Successfully synchronized ${newEmailsCount} new real email(s) into MailRadar for ${config.email}!`,
+        message: `Successfully synchronized ${newEmailsCount} new real email(s) into MailHinge for ${config.email}!`,
       };
     } catch (err: any) {
       console.error('[RealMailboxService.syncInbox]', err);

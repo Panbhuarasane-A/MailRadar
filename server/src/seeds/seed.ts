@@ -76,6 +76,51 @@ const SEED_EMAILS = [
     isVip: false,
   },
   {
+    sender: 'St Joseph Chennai CDC <stjoseph@haveloc.com>',
+    senderName: 'St Joseph Chennai CDC',
+    subject: 'Important Notice: Student Account Status - Freeze/Unfreeze Notification',
+    bodySnippet: 'Hello PANBHUARASANE ANBAZHAGAN, Your Haveloc access has been restored. If you have questions about this change, contact your placement office.',
+    bodyFull: 'Hello PANBHUARASANE ANBAZHAGAN,\n\nYour Haveloc access has been restored.\n\nYour account is active again. If you have questions about this change, contact your placement office.\n\n© 2026 Haveloc Placement Services\nThis is an automated message. https://haveloc.com',
+    receivedAt: new Date(Date.now() - 5 * 60 * 1000), // 5 mins ago
+    isVip: true,
+  },
+  {
+    sender: 'GATE 2027 <noreply-gate2027@iitm.ac.in>',
+    senderName: 'GATE 2027',
+    subject: 'GATE 2027 Enrollment ID',
+    bodySnippet: 'Dear GATE 2027 applicant: Your email address has been registered with the GATE 2027 Online Application Processing System. Enrollment ID: G27-IITM-89124',
+    bodyFull: 'Dear GATE 2027 applicant:\n\nYour email address has been registered with the GATE 2027 Online Application Processing System (GOAPS).\n\nYour Enrollment ID is: G27-IITM-89124\nPassword has been sent to your mobile.\n\nPlease save your enrollment ID for all future correspondence.\n\nIIT Madras GATE Office\nhttps://gate2027.iitm.ac.in',
+    receivedAt: new Date(Date.now() - 25 * 60 * 1000), // 25 mins ago
+    isVip: true,
+  },
+  {
+    sender: "L'Oréal Careers <noreply@careers.loreal-group.com>",
+    senderName: "L'Oréal Careers",
+    subject: "L'Oréal - Thank you for registering to L'Oréal Brandstorm 2026",
+    bodySnippet: "Dear Panbhuarasane, Thank you for registering to L'Oréal Brandstorm 2026! We are excited to welcome you to the ultimate innovation competition.",
+    bodyFull: "Dear Panbhuarasane,\n\nThank you for registering to L'Oréal Brandstorm 2026!\n\nWe are excited to welcome you to this year's competition. Get ready to crack the case, innovate beauty tech, and compete on the global stage.\n\nPortal: https://brandstorm.loreal.com\nCareers: https://careers.loreal-group.com\n\nBest regards,\nL'Oréal Talent Acquisition & University Relations",
+    receivedAt: new Date(Date.now() - 35 * 60 * 1000), // 35 mins ago
+    isVip: true,
+  },
+  {
+    sender: 'Unstop Opportunities <noreply@emails.unstop.com>',
+    senderName: 'Unstop Opportunities',
+    subject: 'Application Confirmed: National Coding & AI Hackathon 2026',
+    bodySnippet: 'Your registration for National Coding & AI Hackathon 2026 has been confirmed. Round 1 online assessment goes live this Sunday.',
+    bodyFull: 'Hi Panbhuarasane,\n\nYour team registration has been successfully confirmed on Unstop!\n\nCompetition: National Coding & AI Challenge\nRound 1 Assessment Window: Sunday 10:00 AM - 6:00 PM IST\n\nLink: https://unstop.com/hackathons/national-ai-challenge-2026\n\nHappy Competing!\nTeam Unstop',
+    receivedAt: new Date(Date.now() - 50 * 60 * 1000),
+    isVip: false,
+  },
+  {
+    sender: 'Devpost <notifications@devpost.com>',
+    senderName: 'Devpost Hackathons',
+    subject: 'Submission Open: Global Autonomous Agents Sprints 2026',
+    bodySnippet: 'Submissions are officially open for Global Autonomous Agents Sprints. $50,000 in prizes.',
+    bodyFull: 'Hey Builders,\n\nSubmissions are now open for the Global Autonomous Agents Sprints!\n\nDeadline to submit: October 20, 2026 at 5:00 PM EST.\nPrize Pool: $50,000 USD\n\nSubmit your project: https://devpost.com/hackathons/agentic-ai-2026\n\nCheers,\nDevpost Team',
+    receivedAt: new Date(Date.now() - 80 * 60 * 1000),
+    isVip: false,
+  },
+  {
     sender: 'sales@cloudserver-pro.com',
     senderName: 'CloudServer Pro Special Deals',
     subject: 'Special Offer: 60% OFF Bare Metal Servers & Redis Clusters!',
@@ -91,16 +136,18 @@ export async function seedDatabase() {
   
   // 1. Create or get user
   const user = await authService.getOrCreateDefaultUser();
-  console.log(`[Seed] User ID: ${user.id}`);
+  const admin = await authService.getOrCreateAdminUser();
+  console.log(`[Seed] Primary User: ${user.email} (${user.id}), Admin: ${admin.email} (${admin.id})`);
 
   // Clean existing data for clean demo state
-  await prisma.userFeedback.deleteMany({ where: { userId: user.id } });
+  await prisma.userFeedback.deleteMany({});
   await prisma.task.deleteMany({ where: { userId: user.id } });
   await prisma.email.deleteMany({ where: { userId: user.id } });
   await prisma.senderProfile.deleteMany({ where: { userId: user.id } });
 
   console.log('[Seed] Ingesting realistic email dataset & computing priority intelligence...');
 
+  const createdEmails = [];
   for (const item of SEED_EMAILS) {
     // 1. Create sender profile
     await prisma.senderProfile.create({
@@ -136,13 +183,18 @@ export async function seedDatabase() {
 
     // 3. Process email synchronously for seed
     await ingestionQueue.processEmail(email.id, user.id);
+    createdEmails.push(email);
   }
 
-  const emailCount = await prisma.email.count({ where: { userId: user.id } });
-  const taskCount = await prisma.task.count({ where: { userId: user.id } });
-  const hotspotCount = await prisma.email.count({ where: { userId: user.id, priorityTier: 'hotspot' } });
+  // 4. Do not seed dummy feedbacks - only capture genuine user actions
+  console.log('[Seed] Ready for genuine user feedbacks.');
 
-  console.log(`[Seed] Seeding complete! Ingested ${emailCount} emails (${hotspotCount} Hotspots), created ${taskCount} action tasks.`);
+  const emailCount = await prisma.email.count();
+  const taskCount = await prisma.task.count();
+  const feedbackCount = await prisma.userFeedback.count();
+  const userCount = await prisma.user.count();
+
+  console.log(`[Seed] Seeding complete! Ingested ${emailCount} emails across ${userCount} users, ${taskCount} tasks, ${feedbackCount} feedbacks.`);
 }
 
 if (require.main === module) {

@@ -9,8 +9,9 @@ import { syncController } from '../controllers/syncController';
 import { mailboxController } from '../controllers/mailboxController';
 import { telegramController } from '../controllers/telegramController';
 import { authController } from '../controllers/authController';
+import { adminController } from '../controllers/adminController';
 import { authService } from '../services/auth/authService';
-import { authenticateToken } from '../middleware/authMiddleware';
+import { authenticateToken, requireAdmin } from '../middleware/authMiddleware';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.post('/auth/register', (req, res) => authController.register(req, res));
 router.post('/auth/refresh', (req, res) => authController.refreshToken(req, res));
 router.post('/auth/logout', (req, res) => authController.logout(req, res));
 router.get('/auth/csrf', (req, res) => authController.getCSRFToken(req, res));
-router.get('/auth/users', (req, res) => authController.getUsers(req, res));
+router.get('/auth/users', requireAdmin, (req, res) => authController.getUsers(req, res));
 router.patch('/auth/preferences', authenticateToken, (req, res) => authController.updatePreferences(req, res));
 router.patch('/auth/profile', authenticateToken, (req, res) => authController.updateProfile(req, res));
 router.delete('/auth/account', authenticateToken, (req, res) => authController.deleteAccount(req, res));
@@ -57,6 +58,7 @@ router.patch('/emails/:id/status', (req, res) => emailController.updateEmailStat
 router.patch('/emails/:id/category', (req, res) => emailController.updateEmailCategory(req, res));
 router.post('/emails/:id/snooze', (req, res) => emailController.snoozeEmail(req, res));
 router.post('/emails/:id/unsnooze', (req, res) => emailController.unsnoozeEmail(req, res));
+router.delete('/emails/:id', (req, res) => emailController.deleteEmail(req, res));
 
 // Tasks (Action Center)
 router.get('/tasks', (req, res) => taskController.getTasks(req, res));
@@ -73,7 +75,9 @@ router.get('/senders', (req, res) => senderController.getSenders(req, res));
 router.post('/senders/vip', (req, res) => senderController.toggleVip(req, res));
 
 // Feedback Loop
+router.get('/feedback', (req, res) => feedbackController.getUserFeedbacks(req, res));
 router.post('/feedback', (req, res) => feedbackController.submitFeedback(req, res));
+router.delete('/feedback/:id', (req, res) => feedbackController.deleteFeedback(req, res));
 
 // Settings & Sensitivity
 router.get('/settings', (req, res) => settingsController.getSettings(req, res));
@@ -104,5 +108,11 @@ router.get('/auth/providers', (req, res) => {
     },
   });
 });
+
+// Admin Intelligence Dashboard & Telemetry (Restricted to Administrators)
+router.get('/admin/metrics', requireAdmin, (req, res) => adminController.getDashboardMetrics(req, res));
+router.get('/admin/feedbacks', requireAdmin, (req, res) => adminController.getAllFeedbacks(req, res));
+router.get('/admin/users', requireAdmin, (req, res) => adminController.getAllUsersWithUsage(req, res));
+router.get('/admin/api-usage', requireAdmin, (req, res) => adminController.getApiUsageMetrics(req, res));
 
 export default router;

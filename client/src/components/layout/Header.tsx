@@ -27,15 +27,18 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-30 bg-[#0a0d14]/90 backdrop-blur-md border-b border-slate-800 px-6 py-3.5 flex items-center justify-between">
       {/* Left: Logo & Radar Pulse */}
       <div className="flex items-center gap-3">
-        <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 shadow-[0_0_20px_rgba(244,63,94,0.4)]">
-          <Radio className="w-5 h-5 text-slate-950 animate-pulse" />
-          <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-rose-500 border-2 border-[#0a0d14]" />
+        <div className="relative flex items-center justify-center w-9 h-9 rounded-xl overflow-hidden bg-black border border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.4)] flex-shrink-0">
+          <img
+            src="/mailhinge-logo.jpg"
+            alt="MailHinge"
+            className="w-full h-full object-cover"
+          />
         </div>
 
         <div>
           <div className="flex items-center gap-2">
             <span className="font-extrabold text-base tracking-tight text-white font-sans">
-              MAILO<span className="text-rose-500">AI</span>
+              MAIL HINGE <span className="text-rose-500">AI</span>
             </span>
             <span className="text-[10px] font-mono uppercase px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
               AI Priority Engine
@@ -91,11 +94,11 @@ export const Header: React.FC<HeaderProps> = ({
         {/* User Avatar */}
         <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500/30 to-purple-500/30 border border-rose-500/30 flex items-center justify-center font-bold text-xs text-rose-300">
-            PA
+            MH
           </div>
           <div className="hidden lg:block text-left text-xs">
-            <div className="font-semibold text-slate-200 leading-none">Panbhuarasane</div>
-            <div className="text-[10px] text-slate-500 font-mono mt-0.5">panbhuofficial@gmail.com</div>
+            <div className="font-semibold text-slate-200 leading-none">Mail Hinge AI Workspace</div>
+            <div className="text-[10px] text-slate-500 font-mono mt-0.5">Multi-User Isolated</div>
           </div>
         </div>
       </div>

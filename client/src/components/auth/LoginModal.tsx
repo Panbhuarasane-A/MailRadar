@@ -19,6 +19,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { TermsAndPrivacyModal } from '../common/TermsAndPrivacyModal';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -56,6 +57,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [agreedTerms, setAgreedTerms] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Google OAuth Config State
   const [showGoogleConfig, setShowGoogleConfig] = useState(false);
@@ -70,7 +73,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [successMsg, setSuccessMsg] = useState('');
 
   // Filter real accounts
-  const dummyFilter = ['alex.chen@mailradar.ai', 'elena.rostova@finance-exec.com', 'testuser@example.com'];
+  const dummyFilter = ['alex.chen@mailhinge.ai', 'elena.rostova@finance-exec.com', 'testuser@example.com'];
   const realAvailableUsers = availableUsers.filter((u) => !dummyFilter.includes(u.email.toLowerCase()));
 
   useEffect(() => {
@@ -163,6 +166,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       setErrorMsg('Please enter a valid email address.');
       return;
     }
+    if (!agreedTerms) {
+      setErrorMsg('Please review and agree to the Terms & Conditions to create an account.');
+      setShowTermsModal(true);
+      return;
+    }
     setErrorMsg('');
     setIsSubmitting(true);
     try {
@@ -191,28 +199,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  // Demo user presets for 1-click testing
-  const demoAccounts = [
-    {
-      name: 'Panbhuarasane',
-      email: 'panbhuofficial@gmail.com',
-      role: 'Primary Account • Admin',
-      badge: 'Main Inbox',
-    },
-    {
-      name: 'Alex Chen',
-      email: 'alex.chen@mailo.ai',
-      role: 'Lead AI Engineer',
-      badge: 'Engineering',
-    },
-    {
-      name: 'Elena Rostova',
-      email: 'elena.rostova@finance-exec.com',
-      role: 'Chief Financial Officer',
-      badge: 'Executive',
-    },
-  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 modal-backdrop">
@@ -563,7 +549,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     required
                     value={signInEmail}
                     onChange={(e) => setSignInEmail(e.target.value)}
-                    placeholder="e.g. panbhuofficial@gmail.com"
+                    placeholder="e.g. yourname@gmail.com"
                     className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-[#0c0d12] border border-slate-200 dark:border-[#1e2230] focus:outline-none focus:border-blue-500 dark:focus:border-orange-500 focus:ring-1 focus:ring-blue-500 dark:focus:ring-orange-500 text-slate-900 dark:text-slate-100"
                   />
                 </div>
@@ -654,6 +640,42 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 </div>
               </div>
 
+              {/* Terms Agreement checkbox & Policy Review CTA */}
+              <div className="space-y-1 pt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={agreedTerms}
+                      onChange={(e) => setAgreedTerms(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-700 text-blue-600 dark:text-orange-500 focus:ring-blue-500 bg-slate-50 dark:bg-[#0c0d12] cursor-pointer"
+                    />
+                    <span>
+                      I agree to the{' '}
+                      <button
+                        type="button"
+                        onClick={() => setShowTermsModal(true)}
+                        className="text-blue-600 dark:text-orange-400 font-bold underline hover:text-blue-700 dark:hover:text-orange-300 transition-colors"
+                      >
+                        Terms & Conditions
+                      </button>
+                    </span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-[11px] text-blue-600 dark:text-orange-400 underline font-medium hover:text-blue-800 dark:hover:text-orange-300"
+                  >
+                    Review Policy
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 pl-5.5 leading-tight">
+                  We suggest reviewing our terms & privacy policy before creating your workspace.
+                </p>
+              </div>
+
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -672,6 +694,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Terms & Privacy Policy Modal */}
+      <TermsAndPrivacyModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={() => {
+          setAgreedTerms(true);
+          setShowTermsModal(false);
+        }}
+      />
     </div>
   );
 };

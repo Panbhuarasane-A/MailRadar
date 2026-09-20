@@ -110,7 +110,16 @@ export const DEFAULT_CUSTOM_CATEGORIES: CustomCategory[] = [
       'dare2compete',
       'haveloc',
     ],
-    senderDomains: ['unstop.com', 'dare2compete.com', 'haveloc.com', 'stjoseph.edu'],
+    senderDomains: [
+      'unstop.com',
+      'dare2compete.com',
+      'haveloc.com',
+      'stjoseph.edu',
+      'careers.loreal-group.com',
+      'loreal-group.com',
+      'iitm.ac.in',
+      'devpost.com',
+    ],
     isDefault: true,
   },
   {
@@ -149,26 +158,53 @@ export const DEFAULT_CUSTOM_CATEGORIES: CustomCategory[] = [
 ];
 
 /**
- * Helper to extract the normalized sender domain from an email sender string.
+ * Helper to extract the normalized sender domain from an email sender string or sender name.
  * Handles forms like:
  * "noreply@emails.unstop.com" -> "emails.unstop.com"
  * "St Joseph <stjoseph@haveloc.com>" -> "haveloc.com"
  * "user@domain.co.in" -> "domain.co.in"
  */
-export function extractSenderDomain(sender: string): string {
-  if (!sender) return '';
+export function extractSenderDomain(sender: string, senderName?: string): string {
+  const BLACKLISTED = new Set([
+    'unknown', 'telegram', 'localhost', 'mailhinge.ai', 'example.com',
+    't.me', 'telegram.org', 'telegram.me', 'whatsapp.com', 'wa.me',
+    'pdlink.in', 'openinapp.co', 'openinapp.link', 'bit.ly', 'tinyurl.com',
+    'youtu.be', 'youtube.com', 'instagram.com', 'facebook.com', 'twitter.com', 'x.com',
+    'placementdriveofficial', 'job4fresherss'
+  ]);
+
+  if (!sender && !senderName) return '';
+
+  const isTelegram =
+    (sender && (sender.includes('(Telegram Channel)') || sender.startsWith('@') || sender.includes('t.me/'))) ||
+    (senderName && senderName.toLowerCase().includes('telegram'));
+
+  if (isTelegram) {
+    return '';
+  }
+
+  // Extract clean email address if in RFC format
   const emailMatch =
-    sender.match(/<([^>]+)>/) ||
-    sender.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-  const rawEmail = emailMatch ? emailMatch[1] : sender;
+    (sender || '').match(/<([^>]+)>/) ||
+    (sender || '').match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  const rawEmail = emailMatch ? emailMatch[1] : (sender || '');
+
+  // If standard user@domain.com
   const atIdx = rawEmail.indexOf('@');
-  if (atIdx === -1) return '';
-  return rawEmail.slice(atIdx + 1).toLowerCase().trim().replace(/[^a-z0-9.-]/gi, '');
+  if (atIdx !== -1 && !rawEmail.startsWith('@')) {
+    let domain = rawEmail.slice(atIdx + 1).toLowerCase().trim();
+    domain = domain.replace(/[^a-z0-9.-]/gi, '').replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
+    if (domain && !BLACKLISTED.has(domain)) {
+      return domain;
+    }
+  }
+
+  return '';
 }
 
 /**
  * Checks if a sender domain matches a rule domain.
- * Supports exact domain matches and subdomains (e.g. "emails.unstop.com" matches rule "unstop.com").
+ * Supports exact domain matches and subdomains (e.g. "emails.unstop.com" or "careers.loreal-group.com" matches rule "unstop.com" or "loreal-group.com").
  */
 export function isDomainMatch(senderDomain: string, ruleDomain: string): boolean {
   if (!senderDomain || !ruleDomain) return false;
@@ -309,15 +345,24 @@ export function classifyMailCategory(
   }
 
   const sender = (email.sender || '').toLowerCase();
-  const senderDomain = extractSenderDomain(sender);
   const senderName = (email.senderName || '').toLowerCase();
+  const senderDomain = extractSenderDomain(sender, senderName);
   const subject = (email.subject || '').toLowerCase();
   const body = `${email.bodySnippet || ''} ${email.bodyFull || ''}`.toLowerCase();
 
-  // 2. Strict Sender Domain Match across categories that have explicit senderDomains configured (e.g. unstop, haveloc)
+  // 2. Strict Sender Domain Match across categories that have explicit senderDomains configured (e.g. unstop, haveloc, placementdrive.in)
   for (const cat of categories) {
     if (cat.senderDomains && cat.senderDomains.length > 0) {
-      const hasDomainMatch = cat.senderDomains.some((d) => isDomainMatch(senderDomain, d));
+      const hasDomainMatch = cat.senderDomains.some((d) => {
+        const cleanRule = d.toLowerCase().replace(/^@/, '').trim();
+        if (!cleanRule) return false;
+        return (
+          isDomainMatch(senderDomain, cleanRule) ||
+          sender.includes(cleanRule) ||
+          senderName.includes(cleanRule) ||
+          body.includes(`@${cleanRule}`)
+        );
+      });
       if (hasDomainMatch) {
         return cat.id;
       }
@@ -598,5 +643,78 @@ export function getPriorityTheme(tier: string) {
         accentColor: '#22C55E',
       };
   }
+}
+
+/**
+ * Strict evaluation to exclude OTPs, 2FA, password resets, verification codes, security keys,
+ * security alerts, spam, advertisements, marketing promotions, shopping deals, and newsletters
+ * from appearing in the Calendar, Agenda, and Deadline radar.
+ */
+export function isExcludedFromCalendar(email: Email): boolean {
+  if (!email) return true;
+
+  // 1. Explicit Category & Flags
+  const cat = (email.category || '').toLowerCase().trim();
+  if (['otp_security', 'otp', 'security', 'auth', 'spam', 'promotions', 'promotional', 'advertisement', 'marketing', 'newsletter', 'social'].includes(cat)) {
+    return true;
+  }
+
+  if (email.isSpam || email.isPromotional) {
+    return true;
+  }
+
+  const sender = (email.sender || '').toLowerCase();
+  const senderName = (email.senderName || '').toLowerCase();
+  const subject = (email.subject || '').toLowerCase();
+  const body = `${email.bodySnippet || ''} ${email.bodyFull || ''} ${email.actionSummary || ''} ${email.reasoning || ''}`.toLowerCase();
+  const fullText = `${sender} ${senderName} ${subject} ${body}`;
+
+  // 2. OTP, 2FA, Verification Code, Auth Codes & Passcodes
+  const otpRegex = /\b(otp|2fa|one-time\s*password|one-time\s*passcode|verification\s*code|security\s*code|login\s*code|auth\s*code|passcode|two-factor|authentication\s*code|device\s*authorization|temporary\s*security\s*code|security\s*verification\s*code|verification\s*otp)\b/i;
+  if (otpRegex.test(subject) || otpRegex.test(body)) {
+    return true;
+  }
+
+  // 3. Password Reset, Security Key, Account Recovery & Login/Sign-in Notices
+  const securityRegex = /\b(password\s*reset|reset\s*(your\s*)?password|forgot\s*password|account\s*recovery|security\s*key|security\s*alert|sign-in\s*attempt|sign-in\s*notification|login\s*attempt|new\s*login\s*from|security\s*notice|security\s*warning|unauthorized\s*sign-in|account\s*access\s*key|protect\s*your\s*account|temporary\s*security\s*link|confirm\s*(your\s*)?email|verify\s*your\s*account|verify\s*email)\b/i;
+  if (securityRegex.test(subject) || securityRegex.test(body)) {
+    return true;
+  }
+
+  // 4. Advertisements, Deals, Discounts, Sales, Newsletters & Marketing Offers
+  const adRegex = /\b(advertisement|sponsored|special\s*discount|exclusive\s*deal|flat\s*\d+%\s*off|\b\d+%\s*off\b|promo\s*code|coupon\s*code|shop\s*now|buy\s*now|flash\s*sale|limited\s*time\s*offer|clearance\s*sale|mega\s*sale|newsletter\s*digest|unsubscribe\s*from\s*this\s*list|view\s*in\s*browser|marketing\s*email|weekly\s*digest|special\s*offer|sale\s*ends\s*soon|bare\s*metal\s*servers)\b/i;
+  if (adRegex.test(subject) || (adRegex.test(body) && !/(?:interview|assessment|coding\s*challenge|hackathon|campus\s*drive|placement\s*drive|exam|test\s*date)/i.test(subject))) {
+    return true;
+  }
+
+  // 5. Social & Q&A Newsletters and Digests (Quora, Reddit, Medium, Pinterest)
+  if (
+    sender.includes('quora.com') ||
+    senderName.includes('quora') ||
+    subject.toLowerCase().includes('quora digest') ||
+    sender.includes('redditmail.com') ||
+    sender.includes('medium.com') ||
+    sender.includes('pinterest.com')
+  ) {
+    return true;
+  }
+
+  // 6. Account Security / Auth Sender Addresses (unless legitimate career event)
+  if (
+    (sender.includes('no-reply@accounts.google.com') ||
+     sender.includes('account-security-noreply@') ||
+     sender.includes('accountprotection.microsoft.com') ||
+     sender.includes('security@github.com') ||
+     (sender.includes('support@github.com') && /password|reset|security|key|otp|verification/i.test(subject)) ||
+     (sender.includes('accounts@') && /security|verification|otp|code/i.test(subject)) ||
+     sender.includes('security@') ||
+     sender.includes('auth@') ||
+     sender.includes('verify@')) &&
+    !/(?:interview|assessment|hiring|recruitment|hackathon|contest|application|campus)/i.test(subject)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 

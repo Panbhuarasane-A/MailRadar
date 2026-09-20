@@ -34,7 +34,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
       iconSize: 'text-[9px]',
     },
     md: {
-      track: 'w-12 h-6.5',
+      track: 'w-12 h-6',
       thumb: 'w-5 h-5',
       translate: 'translate-x-6',
       translateOff: 'translate-x-0.5',
@@ -42,8 +42,8 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
     },
     lg: {
       track: 'w-14 h-8',
-      thumb: 'w-6.5 h-6.5',
-      translate: 'translate-x-6.5',
+      thumb: 'w-6 h-6',
+      translate: 'translate-x-6',
       translateOff: 'translate-x-0.5',
       iconSize: 'text-[13px]',
     },

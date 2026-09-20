@@ -210,6 +210,30 @@ export class EmailController {
       return res.status(500).json({ success: false, error: err.message });
     }
   }
+
+  public async deleteEmail(req: Request, res: Response) {
+    try {
+      const user = await authService.getUserFromRequest(req);
+      const { id } = req.params;
+
+      const email = await prisma.email.findFirst({
+        where: { id, userId: user.id },
+      });
+
+      if (!email) {
+        return res.status(404).json({ success: false, error: 'Email not found' });
+      }
+
+      await prisma.email.delete({
+        where: { id },
+      });
+
+      return res.json({ success: true, message: 'Email deleted successfully' });
+    } catch (err: any) {
+      console.error('[EmailController.deleteEmail]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
 }
 
 export const emailController = new EmailController();

@@ -214,9 +214,14 @@ export const ActionCenter: React.FC<ActionCenterProps> = ({
                             {cleanTitle}
                           </div>
                           <button
-                            onClick={() => onDeleteTask(task.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-600 transition-opacity flex-shrink-0"
-                            title="Delete task"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteTask(task.id);
+                            }}
+                            className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/60 transition-all flex-shrink-0 active:scale-90"
+                            title="Delete task immediately"
+                            aria-label="Delete task"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -253,30 +258,34 @@ export const ActionCenter: React.FC<ActionCenterProps> = ({
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {col.id !== 'todo' && (
                               <button
+                                type="button"
                                 onClick={() =>
                                   onUpdateStatus(
                                     task.id,
                                     col.id === 'done' ? 'in_progress' : 'todo'
                                   )
                                 }
-                                className="p-1 rounded-lg border border-slate-200 dark:border-[#2a2f40] hover:bg-slate-50 dark:hover:bg-[#1e2230] text-slate-600 dark:text-slate-300"
-                                title="Move back"
+                                className="p-1 rounded-lg border border-slate-200 dark:border-[#2a2f40] hover:bg-slate-100 dark:hover:bg-[#1e2230] text-slate-600 dark:text-slate-300 transition-colors active:scale-95"
+                                title={col.id === 'done' ? 'Move back to In Progress' : 'Move back to To Do'}
+                                aria-label={col.id === 'done' ? 'Move back to In Progress' : 'Move back to To Do'}
                               >
-                                <ArrowLeft className="w-3 h-3" />
+                                <ArrowLeft className="w-3.5 h-3.5" />
                               </button>
                             )}
                             {col.id !== 'done' && (
                               <button
+                                type="button"
                                 onClick={() =>
                                   onUpdateStatus(
                                     task.id,
                                     col.id === 'todo' ? 'in_progress' : 'done'
                                   )
                                 }
-                                className="p-1 rounded-lg border border-slate-200 dark:border-[#2a2f40] hover:bg-slate-50 dark:hover:bg-[#1e2230] text-slate-600 dark:text-slate-300"
-                                title="Move forward"
+                                className="p-1 rounded-lg border border-slate-200 dark:border-[#2a2f40] hover:bg-slate-100 dark:hover:bg-[#1e2230] text-slate-600 dark:text-slate-300 transition-colors active:scale-95"
+                                title={col.id === 'todo' ? 'Move to In Progress' : 'Move forward to Done'}
+                                aria-label={col.id === 'todo' ? 'Move to In Progress' : 'Move forward to Done'}
                               >
-                                <ArrowRight className="w-3 h-3" />
+                                <ArrowRight className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>

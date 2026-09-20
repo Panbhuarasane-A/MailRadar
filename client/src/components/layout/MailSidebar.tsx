@@ -25,6 +25,7 @@ import {
   Tag,
   Bell,
   Timer,
+  MessageSquare,
 } from 'lucide-react';
 import { CustomCategory } from '../../types';
 import { MailCategoryType, getCategoryTheme, DEFAULT_CUSTOM_CATEGORIES } from '../../utils/categoryClassifier';
@@ -39,6 +40,7 @@ export type MailView =
   | 'deadline-calendar'
   | 'daily-brief'
   | 'senders'
+  | 'feedback'
   | 'settings';
 
 export type MailPriorityFilter = 'all' | 'urgent' | 'important' | 'normal' | 'low';
@@ -318,6 +320,21 @@ export const MailSidebar: React.FC<MailSidebarProps> = ({
                 {counts.vips}
               </span>
             )}
+          </button>
+
+          {/* User Feedback */}
+          <button
+            onClick={() => onNavigateView('feedback')}
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+              currentView === 'feedback'
+                ? 'bg-blue-50 dark:bg-orange-500/10 text-blue-700 dark:text-orange-400 dark:border dark:border-orange-500/30 font-semibold shadow-xs'
+                : 'text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#151722] hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-emerald-500 dark:text-orange-400" />
+              <span>Feedback</span>
+            </div>
           </button>
 
           {/* Settings */}

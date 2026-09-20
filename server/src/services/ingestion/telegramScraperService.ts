@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { prisma } from '../../config/prisma';
 import { ingestionQueue } from '../queue/ingestionQueue';
+import { linkBypassService } from './linkBypassService';
 
 export interface ScrapedTelegramPost {
   channelHandle: string;
@@ -167,20 +168,21 @@ export class TelegramScraperService {
     });
 
     return text
+      .replace(/\0/g, '')
       .replace(/\\/g, ' ') // replace backslashes with space so no hex escape issues occur
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // remove control chars
+      .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '') // remove control chars
       .trim();
   }
 
   /**
-   * Scrapes and synchronizes a Telegram channel into the user's MailRadar inbox
+   * Scrapes and synchronizes a Telegram channel into the user's MailHinge inbox
    */
   public async syncChannel(userId: string, channelInput: string, limit: number = 20) {
     const { channelHandle, channelTitle, posts } = await this.scrapePublicChannel(channelInput, limit);
     const cleanTitle = this.sanitizeText(channelTitle) || `@${channelHandle}`;
 
     const userRecord = await prisma.user.findUnique({ where: { id: userId } });
-    const userRecipientEmail = userRecord?.email || 'user@mailradar.ai';
+    const userRecipientEmail = userRecord?.email || 'user@mailhinge.ai';
 
     let newCount = 0;
 
@@ -198,7 +200,20 @@ export class TelegramScraperService {
         const firstLine = lines[0] || 'Telegram Job Posting';
         const cleanSubject = this.sanitizeText(`[TG @${channelHandle}] ${firstLine.slice(0, 80)}`);
         const bodySnippet = sanitizedText.slice(0, 300);
-        const bodyFull = this.sanitizeText(`${sanitizedText}\n\nTelegram Post: ${post.postUrl}\n${post.applyUrl ? `Direct Apply: ${post.applyUrl}` : ''}`);
+
+        let directBypassedUrl: string | undefined = undefined;
+        if (post.applyUrl) {
+          try {
+            const bypassRes = await linkBypassService.resolveDirectApplyLink(post.applyUrl);
+            if (bypassRes.isBypassed && bypassRes.directApplyUrl) {
+              directBypassedUrl = bypassRes.directApplyUrl;
+            }
+          } catch {}
+        }
+
+        const bodyFull = this.sanitizeText(
+          `${sanitizedText}\n\nTelegram Post: ${post.postUrl}\n${post.applyUrl ? `Direct Apply: ${post.applyUrl}` : ''}${directBypassedUrl ? `\nDirect Apply Link: ${directBypassedUrl}` : ''}`
+        );
 
         if (existing) {
           // Update timestamp and metadata if changed
@@ -210,7 +225,7 @@ export class TelegramScraperService {
               sender: `@${channelHandle} (Telegram Channel)`,
               subject: cleanSubject,
               bodySnippet,
-              bodyFull,
+              bodyFull: existing.bodyFull && existing.bodyFull.includes('Direct Apply Link:') ? existing.bodyFull : bodyFull,
             },
           });
           continue;
@@ -288,7 +303,7 @@ export class TelegramScraperService {
     );
 
     if (channels.length === 0) {
-      channels = ['placementdriveofficial', 'job4fresherss'];
+      return [];
     }
 
     const results = [];

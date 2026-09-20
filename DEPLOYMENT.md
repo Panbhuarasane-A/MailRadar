@@ -1,6 +1,6 @@
-# 🚀 Mailo AI — Production Deployment Guide
+# 🚀 Mail Hinge AI — Official Production Deployment & Google Verification Guide
 
-Mailo AI is architected as a **unified full-stack application** where the Node.js/Express backend serves both the REST API endpoints (/api/*) and the high-performance React (Vite) Single Page Application on a single port.
+Mail Hinge AI is architected as a **high-performance unified full-stack application** where the Node.js/Express backend serves both the secured REST API endpoints (`/api/*`) and the compiled React (Vite) Single Page Application on a single port.
 
 ---
 
@@ -8,144 +8,97 @@ Mailo AI is architected as a **unified full-stack application** where the Node.j
 
 | Platform / Method | Best For | Deploy Command / Config |
 | :--- | :--- | :--- |
-| **Render** | 1-Click Free/Paid Cloud Hosting | render.yaml (Pre-configured Blueprint) |
-| **Railway** | Instant Container / Cloud App | railway.json / Procfile |
-| **Docker / Compose** | Any VPS, Cloud VM, or Local Container | docker compose up --build -d |
-| **Fly.io** | Global Edge Deployment | fly launch / Dockerfile |
-| **Linux VPS / AWS EC2** | Dedicated Ubuntu / Debian Server | npm run build && pm2 start npm --name "mailo-ai" -- start |
-| **Vercel** | Serverless / Frontend Edge Hosting | vercel.json |
+| **Render** | 1-Click Turnkey Cloud Hosting (Free/Paid) | `render.yaml` (Pre-configured Blueprint) |
+| **Railway** | Instant PostgreSQL + Container Hosting | `railway.json` / `Procfile` |
+| **Docker / Compose** | Any VPS, Cloud VM, DigitalOcean, or AWS EC2 | `docker compose up --build -d` |
+| **Fly.io** | Global Edge Deployment | `fly launch` / `Dockerfile` |
+| **Vercel + Neon/Supabase** | Frontend Edge + Serverless Backend | `vercel.json` |
 
 ---
 
-## 🛠️ Environment Variables
+## 🛠️ Required Production Environment Variables
 
-Before deploying, configure the following environment variables on your platform:
+Configure the following environment variables on your cloud hosting dashboard (Render / Railway / Docker / Vercel):
 
-| Variable | Description | Example / Default | Required |
-| :--- | :--- | :--- | :--- |
-| NODE_ENV | Environment mode | production | Recommended |
-| PORT | Listening port for the application | 4000 (auto-injected by most cloud hosts) | Optional |
-| DATABASE_URL | SQLite / PostgreSQL connection URI | ile:./dev.db (or PostgreSQL URI) | Yes |
-| ANTHROPIC_API_KEY | Optional Claude API key for live AI scoring | sk-ant-... | Optional |
+| Variable | Description | Example Value |
+| :--- | :--- | :--- |
+| `NODE_ENV` | Environment mode | `production` |
+| `PORT` | Listening port for the application | `4000` (auto-injected by most cloud hosts) |
+| `DATABASE_URL` | PostgreSQL connection URI | `postgresql://user:pass@ep-xyz.neon.tech/mailradar?sslmode=require` |
+| `JWT_SECRET` | 64-char random string for access tokens | Generated securely |
+| `COOKIE_SECRET` | 64-char random string for signed cookies | Generated securely |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | `your-id.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | `GOCSPX-your-secret` |
+| `GOOGLE_REDIRECT_URI` | Production OAuth Callback URL | `https://yourdomain.com/api/auth/google/callback` |
+| `FRONTEND_URL` | Production Frontend Root URL | `https://yourdomain.com` |
+| `GEMINI_API_KEY` | Optional Gemini API key for live AI scoring | `AIzaSy...` |
 
 ---
 
 ## 📦 Option 1: 1-Click Deploy on Render (Recommended)
 
-Render offers zero-configuration deployment using the included [ender.yaml](./render.yaml) blueprint:
-
-1. Push your repository to **GitHub** or **GitLab**.
-2. Go to [dashboard.render.com](https://dashboard.render.com/) and click **New +** → **Blueprint**.
-3. Connect your MailRadar repository. Render will automatically detect ender.yaml:
-   - **Build Command**: 
-pm run build
-   - **Start Command**: 
-pm start
-   - **Health Check**: /health
-4. Click **Apply**. Your application will be live with a free https://mailradar-xxxx.onrender.com URL.
+1. Push your repository to **GitHub**.
+2. Go to **[dashboard.render.com](https://dashboard.render.com/)** $\rightarrow$ **New +** $\rightarrow$ **Blueprint**.
+3. Connect your repository. Render will automatically detect `render.yaml`:
+   - **Build Command**: `npm install && npm install --prefix server && npm install --prefix client && npm run client:build && npm run server:build`
+   - **Start Command**: `npm start`
+   - **Health Check**: `/health`
+4. Add your **PostgreSQL Database** (from Render Postgres, Supabase, or Neon).
+5. Add your Google OAuth environment variables.
+6. Click **Apply**. Your application will be live at `https://your-app-name.onrender.com` (or your custom domain).
 
 ---
 
-## 🚂 Option 2: Deploy on Railway
+## 🛡️ Step-by-Step Google OAuth Verification Guide (To Remove the Warning)
 
-Railway supports automatic Nixpacks / Docker builds with the included [ailway.json](./railway.json) & [Procfile](./Procfile):
+To remove the *"Google hasn't verified this app"* warning for all external users worldwide, follow this exact checklist:
 
-1. Go to [railway.app](https://railway.app/) and create a **New Project**.
-2. Select **Deploy from GitHub repo** and pick your repository.
-3. Railway will execute 
-pm run build and launch 
-pm start.
-4. In Railway Settings, click **Generate Domain** to get your public URL.
+### 1. Host Public Legal Pages (Built-in)
+Google requires publicly accessible Privacy Policy and Terms of Service URLs. Mail Hinge AI includes these pre-built at:
+- **Privacy Policy**: `https://yourdomain.com/privacy`
+- **Terms of Service**: `https://yourdomain.com/terms`
+- **Google Limited Use Disclosure**: `https://yourdomain.com/legal`
 
----
+### 2. Configure Google Cloud Console OAuth Consent Screen
+1. Go to [Google Cloud Console $\rightarrow$ APIs & Services $\rightarrow$ OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent).
+2. Set **User Type**: **External**.
+3. Fill in the App Information:
+   - **App Name**: `Mail Hinge AI`
+   - **User Support Email**: `panbhuofficial@gmail.com`
+   - **App Domain**:
+     - Home Page: `https://yourdomain.com`
+     - Privacy Policy: `https://yourdomain.com/privacy`
+     - Terms of Service: `https://yourdomain.com/terms`
+   - **Authorized Domains**: `yourdomain.com`
+   - **Developer Contact Email**: `panbhuofficial@gmail.com`
+4. Under **Scopes**: Add `https://www.googleapis.com/auth/gmail.readonly`, `email`, and `profile`.
+5. Under **Credentials $\rightarrow$ OAuth 2.0 Client IDs**:
+   - **Authorized JavaScript Origins**: `https://yourdomain.com`
+   - **Authorized Redirect URIs**: `https://yourdomain.com/api/auth/google/callback`
 
-## 🐳 Option 3: Docker & Docker Compose
+### 3. Record YouTube Demo Video (Google Requirement)
+Google requires a 1–2 minute **unlisted YouTube video** demonstrating:
+1. The **OAuth Client ID** clearly visible in the browser address bar during login (`client_id=...apps.googleusercontent.com`).
+2. The user clicking **Sign In with Google** and consenting to permissions.
+3. Demonstrating how Mail Hinge AI uses the Gmail data (priority scoring engine, deadline extraction, and Kanban task generation).
 
-Deploy on any Docker-capable server (VPS, DigitalOcean Droplet, AWS EC2, GCP, or Local Server) using the multi-stage [Dockerfile](./Dockerfile) and [docker-compose.yml](./docker-compose.yml):
+### 4. Copy-Paste Scope Justification Statement for Google Review
+When prompted for **Scope Justification**, copy-paste this statement:
 
-`ash
-# 1. Clone your repository
-git clone https://github.com/your-username/mail-radar.git
-cd mail-radar
+```text
+Mail Hinge AI is an AI-powered email intelligence and task prioritization dashboard. 
 
-# 2. Build and start the container in the background
-docker compose up --build -d
+We request the 'https://www.googleapis.com/auth/gmail.readonly' scope solely to fetch incoming email headers and message content to:
+1. Automatically compute priority and urgency scores for incoming work emails.
+2. Extract critical deadlines and action items into a Kanban task management board.
+3. Help users focus on high-priority correspondence without manual triage.
 
-# 3. View container logs
-docker compose logs -f
-`
+Data Protection & Compliance Statement:
+- User email data is processed strictly for the individual user's personal inbox organization.
+- We do NOT sell, rent, or commercialize email data.
+- User data is never used for advertising, marketing, or training generalized public AI models.
+- All data handling strictly complies with the Google API Services User Data Policy, including the Limited Use requirements.
+```
 
-The app will be running at http://localhost:4000 (or http://YOUR_SERVER_IP:4000).
-
----
-
-## 🖥️ Option 4: Linux VPS (Ubuntu / Debian / AWS EC2) with PM2 & Nginx
-
-### 1. Install Node.js (v20+), Git & PM2
-`ash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs git
-sudo npm install -g pm2
-`
-
-### 2. Clone & Build
-`ash
-git clone https://github.com/your-username/mail-radar.git
-cd mail-radar
-npm install
-npm run build
-`
-
-### 3. Start with PM2 Process Manager
-`ash
-# Launch MailRadar with auto-restart
-pm2 start npm --name "mailradar" -- start
-
-# Configure PM2 to restart on system boot
-pm2 startup
-pm2 save
-`
-
-### 4. (Optional) Setup Nginx Reverse Proxy with SSL
-Create /etc/nginx/sites-available/mailradar:
-`
-ginx
-server {
-    listen 80;
-    server_name mailradar.yourdomain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:4000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade ;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host System.Management.Automation.Internal.Host.InternalHost;
-        proxy_cache_bypass ;
-        proxy_set_header X-Forwarded-For ;
-        proxy_set_header X-Forwarded-Proto ;
-    }
-}
-`
-Enable the site and obtain a free SSL certificate via Certbot:
-`ash
-sudo ln -s /etc/nginx/sites-available/mailradar /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d mailradar.yourdomain.com
-`
-
----
-
-## ⚡ Option 5: Local Production Run
-
-To test or run the unified production build locally on your machine:
-
-`ash
-# 1. Build client and server bundles
-npm run build
-
-# 2. Start the unified production server
-npm start
-`
-
-Open http://localhost:4000 in your browser!
+### 5. Submit for Review
+Click **Submit for Verification**. Google will review your submission and email you confirmation within 3–5 business days.

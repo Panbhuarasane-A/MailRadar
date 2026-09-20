@@ -54,6 +54,32 @@ export const TelegramJobCard: React.FC<TelegramJobCardProps> = ({
     message.receivedAt
   );
 
+  // Pre-resolve shortlinks in background as soon as the card mounts
+  useEffect(() => {
+    let isMounted = true;
+    if (!directApplyUrl && job.applyUrl) {
+      fetch('/api/telegram/resolve-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: job.applyUrl,
+          emailId: message.id,
+        }),
+      })
+        .then((res) => res.json())
+        .then((json) => {
+          if (isMounted && json.success && json.data?.directApplyUrl) {
+            setDirectApplyUrl(json.data.directApplyUrl);
+            setIsBypassed(true);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [job.applyUrl, message.id]);
+
   const priorityTheme = getPriorityTheme(message.priorityTier);
   const priorityLabel = getPriorityLabel(message.priorityTier);
   const isCompleted = message.status === 'archived';
@@ -94,15 +120,31 @@ export const TelegramJobCard: React.FC<TelegramJobCardProps> = ({
   const handleDirectApplyClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
+    const targetUrl = directApplyUrl || job.applyUrl;
+    if (!targetUrl) return;
+
     // If already resolved to a direct portal, open immediately
     if (directApplyUrl) {
       window.open(directApplyUrl, '_blank', 'noopener,noreferrer');
       return;
     }
 
-    if (!job.applyUrl) return;
+    // Open new tab synchronously to guarantee the browser does NOT block it as an unauthorized popup
+    const targetTab = window.open('about:blank', '_blank');
+    if (targetTab) {
+      try {
+        targetTab.document.title = `Redirecting to ${job.company} Career Portal...`;
+        targetTab.document.body.innerHTML = `
+          <div style="font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#0b0f19;color:#f8fafc;padding:24px;text-align:center;">
+            <div style="width:40px;height:40px;border:3px solid #3b82f6;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:20px;"></div>
+            <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+            <h2 style="font-size:20px;font-weight:700;margin:0 0 10px;color:#ffffff;">Bypassing Aggregator Site...</h2>
+            <p style="font-size:14px;color:#94a3b8;margin:0;max-width:460px;line-height:1.5;">Redirecting directly to official <strong>${job.company}</strong> career portal.</p>
+          </div>
+        `;
+      } catch {}
+    }
 
-    // Resolve in background and open
     setIsResolvingLink(true);
     try {
       const res = await fetch('/api/telegram/resolve-link', {
@@ -114,17 +156,24 @@ export const TelegramJobCard: React.FC<TelegramJobCardProps> = ({
         }),
       });
       const json = await res.json();
+      const resolved = json.success && json.data?.directApplyUrl ? json.data.directApplyUrl : job.applyUrl;
       if (json.success && json.data?.directApplyUrl) {
-        const resolvedUrl = json.data.directApplyUrl;
-        setDirectApplyUrl(resolvedUrl);
+        setDirectApplyUrl(resolved);
         setIsBypassed(true);
-        window.open(resolvedUrl, '_blank', 'noopener,noreferrer');
+      }
+
+      if (targetTab && !targetTab.closed) {
+        targetTab.location.href = resolved!;
       } else {
-        window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+        window.open(resolved!, '_blank', 'noopener,noreferrer');
       }
     } catch (err) {
       console.error('Failed to bypass intermediate link:', err);
-      window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+      if (targetTab && !targetTab.closed) {
+        targetTab.location.href = job.applyUrl!;
+      } else {
+        window.open(job.applyUrl!, '_blank', 'noopener,noreferrer');
+      }
     } finally {
       setIsResolvingLink(false);
     }
@@ -172,6 +221,12 @@ export const TelegramJobCard: React.FC<TelegramJobCardProps> = ({
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
                   Applied / Done
+                </span>
+              )}
+              {isBypassed && !isCompleted && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-blue-600 dark:text-orange-400 fill-current" />
+                  Direct ATS Bypassed
                 </span>
               )}
               {isClosedOrExpired && !isCompleted && (
@@ -368,8 +423,31 @@ export const TelegramJobCard: React.FC<TelegramJobCardProps> = ({
 
       {/* Expandable Original Raw Message */}
       {showOriginal && (
-        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0c0d12] border border-slate-200 dark:border-[#1e2230] text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
-          {job.rawText}
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0c0d12] border border-slate-200 dark:border-[#1e2230] text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-mono leading-relaxed break-words">
+          {job.rawText.split(/(https?:\/\/[^\s"'<>]+)/g).map((part, i) => {
+            if (part.match(/^https?:\/\//i)) {
+              const isShortlink = part.includes('pdlink.in') || part.includes('bit.ly') || part.includes('tinyurl.com');
+              const linkTarget = isShortlink && directApplyUrl ? directApplyUrl : part;
+              return (
+                <a
+                  key={i}
+                  href={linkTarget}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (isShortlink && !directApplyUrl) {
+                      handleDirectApplyClick(e);
+                    }
+                  }}
+                  className="text-blue-600 dark:text-orange-400 underline font-semibold hover:text-blue-800 dark:hover:text-orange-300 break-all"
+                  title={isShortlink && directApplyUrl ? `Direct ATS link: ${directApplyUrl}` : 'Open link'}
+                >
+                  {part}
+                </a>
+              );
+            }
+            return part;
+          })}
         </div>
       )}
     </div>

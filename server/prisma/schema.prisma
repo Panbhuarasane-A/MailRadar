@@ -14,6 +14,7 @@ model User {
   oauthTokens  String?        // JSON string of tokens
   preferences  String?        // JSON string for user preferences
   sensitivity  String         @default("balanced") // conservative, balanced, aggressive
+  role         String         @default("user")     // admin, user
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -105,14 +106,15 @@ model SenderProfile {
 model UserFeedback {
   id           String    @id @default(cuid())
   userId       String
-  emailId      String
-  action       String    // thumbs_up, thumbs_down, manual_override
+  emailId      String?
+  action       String    // thumbs_up, thumbs_down, manual_override, direct_feedback, bug_report, feature_request
   overrideTier String?   // hotspot, important, normal, low
   comments     String?
   createdAt    DateTime  @default(now())
 
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email        Email     @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  email        Email?    @relation(fields: [emailId], references: [id], onDelete: Cascade)
 
   @@index([userId, emailId])
 }
+

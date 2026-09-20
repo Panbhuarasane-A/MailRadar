@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { prisma } from '../../config/prisma';
 
 export const DEFAULT_USER_EMAIL = 'panbhuofficial@gmail.com';
+export const DEFAULT_ADMIN_EMAIL = 'admin@mailhinge.ai';
 
 export class AuthService {
   /**
@@ -40,13 +41,24 @@ export class AuthService {
   }
 
   /**
+   * Ensures the default system admin user exists
+   */
+  public async getOrCreateAdminUser() {
+    return this.getOrCreateUser(DEFAULT_ADMIN_EMAIL, 'System Administrator', undefined, 'admin');
+  }
+
+  /**
    * Gets or provisions a user by email, initializing their isolated preferences
    */
-  public async getOrCreateUser(email: string, name?: string, password?: string) {
+  public async getOrCreateUser(email: string, name?: string, password?: string, explicitRole?: string) {
     const cleanEmail = email.toLowerCase().trim();
     let user = await prisma.user.findFirst({
       where: { email: cleanEmail },
     });
+
+    const role =
+      explicitRole ||
+      (cleanEmail === DEFAULT_ADMIN_EMAIL || cleanEmail.startsWith('admin@') || cleanEmail.includes('admin') ? 'admin' : 'user');
 
     if (!user) {
       const displayName =
@@ -62,18 +74,24 @@ export class AuthService {
         data: {
           email: cleanEmail,
           name: displayName,
+          role,
           oauthTokens: passwordHash ? JSON.stringify({ passwordHash }) : null,
           sensitivity: 'balanced',
           preferences: JSON.stringify({
             theme: 'dark',
             dailyBriefTime: '08:30',
             soundAlerts: true,
-            savedTelegramChannels: ['placementdriveofficial'],
+            savedTelegramChannels: [],
             connectedMailbox: null,
           }),
         },
       });
-      console.log(`[AuthService] Provisioned new user: ${user.email} (${user.name})`);
+      console.log(`[AuthService] Provisioned new user: ${user.email} (${user.name}) [Role: ${user.role}]`);
+    } else if (explicitRole && user.role !== explicitRole) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { role: explicitRole },
+      });
     }
 
     return user;
@@ -82,7 +100,7 @@ export class AuthService {
   /**
    * Validates user credentials or registers new user
    */
-  public async authenticate(email: string, password?: string, name?: string) {
+  public async authenticate(email: string, password?: string, name?: string, role?: string) {
     const cleanEmail = email.toLowerCase().trim();
     let user = await prisma.user.findFirst({
       where: { email: cleanEmail },
@@ -117,11 +135,18 @@ export class AuthService {
           data: { name },
         });
       }
+
+      if (role && role !== user.role) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { role },
+        });
+      }
       return user;
     }
 
     // If new user, create account
-    return this.getOrCreateUser(cleanEmail, name, password);
+    return this.getOrCreateUser(cleanEmail, name, password, role);
   }
 
   /**
@@ -134,6 +159,7 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        role: true,
         sensitivity: true,
         preferences: true,
         createdAt: true,
@@ -141,6 +167,8 @@ export class AuthService {
           select: {
             emails: true,
             tasks: true,
+            feedbacks: true,
+            senders: true,
           },
         },
       },

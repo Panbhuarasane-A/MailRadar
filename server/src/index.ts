@@ -77,7 +77,7 @@ app.use('/api', apiRouter);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'MailRadar Unified App', time: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'Mail Hinge AI Unified App', time: new Date().toISOString() });
 });
 
 // Serve frontend static build if available
@@ -114,18 +114,21 @@ async function bootstrap() {
     await prisma.$connect();
     console.log('[Server] Database connected successfully.');
 
-    // Auto-provision default user and auto-seed if empty
+    // Auto-provision default user
     const user = await authService.getOrCreateDefaultUser();
     const existingEmails = await prisma.email.count({ where: { userId: user.id } });
+    const prefs = user.preferences ? JSON.parse(user.preferences) : {};
 
-    if (existingEmails === 0) {
+    if (existingEmails === 0 && !prefs.connectedMailbox) {
       console.log('[Server] First run detected: Seeding initial mailbox with realistic emails...');
       await seedDatabase();
+    } else {
+      console.log(`[Server] User ${user.email} has ${existingEmails} real direct emails. Skipping mock seed.`);
     }
 
     app.listen(PORT, () => {
       console.log(`\n======================================================`);
-      console.log(`  🚀 MailRadar API Server running on port ${PORT}`);
+      console.log(`  🚀 Mail Hinge AI API Server running on port ${PORT}`);
       console.log(`  📡 Health check: http://localhost:${PORT}/health`);
       console.log(`  📥 API Endpoints: http://localhost:${PORT}/api/emails`);
       console.log(`======================================================\n`);
