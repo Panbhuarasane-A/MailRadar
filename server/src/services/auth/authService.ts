@@ -2,7 +2,7 @@ import { Request } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../../config/prisma';
 
-export const DEFAULT_USER_EMAIL = 'panbhuofficial@gmail.com';
+export const DEFAULT_USER_EMAIL = 'guest@mailhinge.ai';
 export const DEFAULT_ADMIN_EMAIL = 'admin@mailhinge.ai';
 
 export class AuthService {

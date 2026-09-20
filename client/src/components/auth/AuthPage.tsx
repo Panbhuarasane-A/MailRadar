@@ -30,14 +30,12 @@ interface AuthPageProps {
   currentUser: UserProfile | null;
   availableUsers: UserProfile[];
   onLoginSuccess: (user: UserProfile) => void;
-  onSkipToApp?: () => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   currentUser,
   availableUsers,
   onLoginSuccess,
-  onSkipToApp,
 }) => {
   const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
 
@@ -257,7 +255,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           {/* Subtle animated background mesh pattern */}
           <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#7C65C1_1px,transparent_1px)] [background-size:24px_24px]" />
 
-          {/* Top Brand & Skip Navigation */}
+          {/* Top Brand */}
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl overflow-hidden bg-black border border-amber-500/40 shadow-[0_0_16px_rgba(245,158,11,0.4)] flex-shrink-0 transition-transform duration-300 hover:scale-105">
@@ -278,21 +276,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               </div>
             </div>
-
-            {onSkipToApp && (
-              <button
-                onClick={onSkipToApp}
-                className="group px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5"
-              >
-                <span>Go to dashboard</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            )}
           </div>
 
           {/* Middle: 3D Animated & Interactive Mail Sorting Robot */}
           <div className="relative z-10 my-4 py-2">
-            <MailBot3D onExplore={onSkipToApp} />
+            <MailBot3D />
           </div>
 
           {/* Bottom: Smooth Automatic Sliding Words Carousel */}

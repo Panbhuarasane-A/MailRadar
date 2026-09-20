@@ -850,7 +850,6 @@ export const App: React.FC = () => {
           setIsAuthPageOpen(false);
           refreshAll();
         }}
-        onSkipToApp={() => setIsAuthPageOpen(false)}
       />
     );
   }
