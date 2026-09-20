@@ -1,9 +1,9 @@
 # ==========================================
-# Multi-Stage Production Dockerfile for MailHinge
+# Multi-Stage Production Dockerfile for MailRadar
 # ==========================================
 
 # Stage 1: Build React Frontend
-FROM node:20-alpine AS client-builder
+FROM node:20-slim AS client-builder
 WORKDIR /app/client
 
 COPY client/package*.json ./
@@ -13,8 +13,11 @@ COPY client/ ./
 RUN npm run build
 
 # Stage 2: Build Express Backend
-FROM node:20-alpine AS server-builder
+FROM node:20-slim AS server-builder
 WORKDIR /app/server
+
+# Install OpenSSL & certificates for Prisma engine compilation
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY server/package*.json ./
 RUN npm ci
@@ -26,8 +29,11 @@ COPY server/ ./
 RUN npm run build
 
 # Stage 3: Minimal Production Image
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
+
+# Install OpenSSL runtime for Prisma Client
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV PORT=4000
