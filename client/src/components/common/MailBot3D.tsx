@@ -1,404 +1,718 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Sparkles,
-  Mail,
-  Zap,
   Flame,
   Briefcase,
   Key,
   CheckSquare,
+  Radio,
+  Zap,
+  Send,
+  Shield,
+  Activity,
+  Cpu,
+  RefreshCw,
+  Eye,
+  Sliders,
+  Play,
+  Rotate3d,
 } from 'lucide-react';
 
-interface StardustParticle {
+interface Particle {
   id: number;
   x: number;
   y: number;
+  vx: number;
+  vy: number;
   size: number;
   color: string;
-  symbol: string;
-  driftX: number;
-  driftY: number;
-  duration: number;
+  alpha: number;
+  life: number;
+  maxLife: number;
+  symbol?: string;
 }
 
-interface FloatingMailItem {
+interface RadarMailNode {
   id: string;
-  type: 'urgent' | 'career' | 'security' | 'task';
-  label: string;
+  title: string;
+  category: string;
+  score: number;
   color: string;
-  bgGlow: string;
-  x: number;
-  y: number;
-  delay: string;
-  icon: React.ReactNode;
-  score: string;
+  glowColor: string;
+  icon: string;
+  angle: number; // in radians
+  distance: number; // 0 to 1 radius percentage
+  speed: number;
+  detail: string;
+  actionText: string;
 }
 
-export const MailBot3D: React.FC<{ onExplore?: () => void }> = () => {
+type AnimationMode = 'radar' | 'robot' | 'pipeline';
+
+export const MailBot3D: React.FC<{ onExplore?: () => void }> = ({ onExplore }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0, normalizedX: 0, normalizedY: 0 });
-  const [robotPos, setRobotPos] = useState({ x: 50, y: 45 });
-  const [stardust, setStardust] = useState<StardustParticle[]>([]);
-  const [activeMailIndex, setActiveMailIndex] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // State
+  const [activeMode, setActiveMode] = useState<AnimationMode>('radar');
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5, rawX: 0, rawY: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<RadarMailNode | null>(null);
+  const [triagedCount, setTriagedCount] = useState(18);
   const [isScanning, setIsScanning] = useState(true);
-  const [sortedCount, setSortedCount] = useState(0);
-  const particleIdRef = useRef(0);
+  const [robotEmotion, setRobotEmotion] = useState<'friendly' | 'scanning' | 'excited' | 'wink'>('friendly');
+  const [laserTarget, setLaserTarget] = useState<{ x: number; y: number } | null>(null);
 
-  const mailItems: FloatingMailItem[] = [
+  // Radar Email Nodes
+  const [nodes, setNodes] = useState<RadarMailNode[]>([
     {
-      id: 'urgent-mail',
-      type: 'urgent',
-      label: 'Urgent Hotspot',
-      color: 'text-rose-400 border-rose-400/50',
-      bgGlow: 'shadow-[0_0_22px_rgba(244,63,94,0.5)] bg-rose-500/20',
-      x: 20,
-      y: 28,
-      delay: '0s',
-      icon: <Flame className="w-3.5 h-3.5 text-rose-400 animate-pulse" />,
-      score: 'Hotspot',
+      id: 'hotspot-1',
+      title: 'Interview Loop Invitation',
+      category: 'Career Hotspot',
+      score: 99,
+      color: '#F43F5E',
+      glowColor: 'rgba(244,63,94,0.6)',
+      icon: '🔥',
+      angle: 0.8,
+      distance: 0.65,
+      speed: 0.008,
+      detail: 'Google Final Round • 24h Deadline to accept slot',
+      actionText: 'Auto-Scheduled to Calendar',
     },
     {
-      id: 'career-mail',
-      type: 'career',
-      label: 'Career & Offer',
-      color: 'text-blue-400 border-blue-400/50',
-      bgGlow: 'shadow-[0_0_22px_rgba(59,130,246,0.5)] bg-blue-500/20',
-      x: 78,
-      y: 26,
-      delay: '1.2s',
-      icon: <Briefcase className="w-3.5 h-3.5 text-blue-400" />,
-      score: 'High Priority',
+      id: 'career-2',
+      title: 'Stripe Staff SWE Offer Letter',
+      category: 'Career & Offer',
+      score: 96,
+      color: '#38BDF8',
+      glowColor: 'rgba(56,189,248,0.6)',
+      icon: '💼',
+      angle: 2.4,
+      distance: 0.75,
+      speed: 0.006,
+      detail: 'Compensation & Equity breakdown attached',
+      actionText: 'High Priority Highlighted',
     },
     {
-      id: 'otp-mail',
-      type: 'security',
-      label: 'Security OTP',
-      color: 'text-amber-400 border-amber-400/50',
-      bgGlow: 'shadow-[0_0_22px_rgba(245,158,11,0.5)] bg-amber-500/20',
-      x: 22,
-      y: 72,
-      delay: '2.1s',
-      icon: <Key className="w-3.5 h-3.5 text-amber-400" />,
-      score: 'Urgent',
+      id: 'otp-3',
+      title: 'AWS Production Auth Code',
+      category: 'Security OTP',
+      score: 92,
+      color: '#F59E0B',
+      glowColor: 'rgba(245,158,11,0.6)',
+      icon: '🔐',
+      angle: 4.1,
+      distance: 0.55,
+      speed: 0.009,
+      detail: 'Verification Code: 849-201 (Expires in 5 mins)',
+      actionText: 'Auto-Extracted OTP',
     },
     {
-      id: 'task-mail',
-      type: 'task',
-      label: 'Action Task',
-      color: 'text-emerald-400 border-emerald-400/50',
-      bgGlow: 'shadow-[0_0_22px_rgba(16,185,129,0.5)] bg-emerald-500/20',
-      x: 78,
-      y: 70,
-      delay: '0.8s',
-      icon: <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />,
-      score: 'Action',
+      id: 'task-4',
+      title: 'Quarterly Infrastructure Review',
+      category: 'Action Task',
+      score: 88,
+      color: '#10B981',
+      glowColor: 'rgba(16,185,129,0.6)',
+      icon: '⚡',
+      angle: 5.3,
+      distance: 0.7,
+      speed: 0.007,
+      detail: 'Due Friday: 3 actionable deliverables extracted',
+      actionText: 'Kanban Card Created',
     },
-  ];
+    {
+      id: 'telegram-5',
+      title: 'Telegram: Meta Campus Drive',
+      category: 'Telegram Ingest',
+      score: 94,
+      color: '#A855F7',
+      glowColor: 'rgba(168,85,247,0.6)',
+      icon: '✈️',
+      angle: 3.5,
+      distance: 0.82,
+      speed: 0.005,
+      detail: 'Direct ATS Career Link bypassed & verified',
+      actionText: 'Scraped & Verified',
+    },
+  ]);
 
-  const spawnStardust = (originX: number, originY: number, count = 3) => {
-    const starSymbols = ['✦', '★', '✧', '•', '✨', '✵'];
-    const starColors = ['#C084FC', '#67E8F9', '#FDE047', '#F472B6', '#FFFFFF', '#34D399'];
+  // Particles system
+  const particlesRef = useRef<Particle[]>([]);
+  const radarSweepAngleRef = useRef(0);
+  const animFrameIdRef = useRef<number | null>(null);
 
-    const newParticles: StardustParticle[] = [];
-    for (let i = 0; i < count; i++) {
-      particleIdRef.current += 1;
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 15 + Math.random() * 45;
-      newParticles.push({
-        id: particleIdRef.current,
-        x: originX + (Math.random() - 0.5) * 15,
-        y: originY + (Math.random() - 0.5) * 15,
-        size: Math.random() > 0.4 ? 12 : 8,
-        color: starColors[Math.floor(Math.random() * starColors.length)],
-        symbol: starSymbols[Math.floor(Math.random() * starSymbols.length)],
-        driftX: Math.cos(angle) * dist,
-        driftY: Math.sin(angle) * dist + 15,
-        duration: 1.2 + Math.random() * 0.8,
-      });
-    }
-
-    setStardust((prev) => [...prev.slice(-30), ...newParticles]);
-  };
-
-  useEffect(() => {
-    let t = 0;
-    const flightInterval = setInterval(() => {
-      t += 0.05;
-      const baseFlightX = 50 + Math.sin(t) * 14;
-      const baseFlightY = 46 + Math.cos(t * 1.5) * 10;
-      const targetX = baseFlightX + mousePos.normalizedX * 16;
-      const targetY = baseFlightY + mousePos.normalizedY * 16;
-
-      setRobotPos({ x: targetX, y: targetY });
-
-      if (Math.random() > 0.2) {
-        spawnStardust(targetX, targetY + 10, 2);
-      }
-    }, 50);
-
-    return () => clearInterval(flightInterval);
-  }, [mousePos]);
-
-  useEffect(() => {
-    const cleanup = setInterval(() => {
-      setStardust((prev) => prev.slice(-25));
-    }, 1500);
-    return () => clearInterval(cleanup);
+  // Mouse move handler for smooth parallax tilt
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+    const x = rawX / rect.width;
+    const y = rawY / rect.height;
+    setMousePos({ x, y, rawX, rawY });
   }, []);
 
-  useEffect(() => {
-    const cycle = setInterval(() => {
-      setIsScanning(true);
-      setTimeout(() => {
-        setIsScanning(false);
-        setSortedCount((c) => c + 1);
-        setActiveMailIndex((i) => (i + 1) % mailItems.length);
-      }, 1500);
-    }, 3600);
+  // Spawn particle bursts
+  const spawnBlast = useCallback((x: number, y: number, count = 24, color = '#F59E0B') => {
+    const symbols = ['✦', '★', '✧', '•', '✨', '⚡'];
+    const colors = ['#F59E0B', '#38BDF8', '#F43F5E', '#10B981', '#C084FC', '#FFFFFF'];
+    
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.5 + Math.random() * 4.5;
+      particlesRef.current.push({
+        id: Math.random(),
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: 2 + Math.random() * 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        life: 0,
+        maxLife: 30 + Math.random() * 30,
+        symbol: Math.random() > 0.4 ? symbols[Math.floor(Math.random() * symbols.length)] : undefined,
+      });
+    }
+  }, []);
 
-    return () => clearInterval(cycle);
-  }, [mailItems.length]);
+  // Click on radar canvas
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const nx = (e.clientX - rect.left) / rect.width - 0.5;
-    const ny = (e.clientY - rect.top) / rect.height - 0.5;
+    // Check if clicked near any node
+    const maxRadius = Math.min(centerX, centerY) * 0.88;
+    let clickedNode: RadarMailNode | null = null;
 
-    setMousePos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      normalizedX: nx,
-      normalizedY: ny,
+    nodes.forEach((node) => {
+      const nodeX = centerX + Math.cos(node.angle) * (node.distance * maxRadius);
+      const nodeY = centerY + Math.sin(node.angle) * (node.distance * maxRadius);
+      const dist = Math.hypot(clickX - nodeX, clickY - nodeY);
+      if (dist < 28) {
+        clickedNode = node;
+      }
     });
 
-    if (Math.random() > 0.4) {
-      const px = ((e.clientX - rect.left) / rect.width) * 100;
-      const py = ((e.clientY - rect.top) / rect.height) * 100;
-      spawnStardust(px, py, 1);
+    if (clickedNode) {
+      setSelectedNode(clickedNode);
+      spawnBlast(clickX, clickY, 30, (clickedNode as RadarMailNode).color);
+      setTriagedCount((prev) => prev + 1);
+      setRobotEmotion('excited');
+      setTimeout(() => setRobotEmotion('friendly'), 2000);
+    } else {
+      spawnBlast(clickX, clickY, 18, '#F59E0B');
+      setTriagedCount((prev) => prev + 1);
+      setRobotEmotion('wink');
+      setTimeout(() => setRobotEmotion('friendly'), 1500);
     }
   };
 
-  const handleStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const px = ((e.clientX - rect.left) / rect.width) * 100;
-    const py = ((e.clientY - rect.top) / rect.height) * 100;
-    spawnStardust(px, py, 10);
-    setSortedCount((c) => c + 1);
-    setActiveMailIndex((i) => (i + 1) % mailItems.length);
-  };
+  // Main Canvas Render Loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-  const activeTargetMail = mailItems[activeMailIndex];
+    let width = (canvas.width = canvas.parentElement?.clientWidth || 460);
+    let height = (canvas.height = 320);
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const maxRadius = Math.min(centerX, centerY) * 0.86;
+
+      // 1. Draw Holographic Radar Background Grid Rings
+      ctx.save();
+      for (let r = 0.25; r <= 1.0; r += 0.25) {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, maxRadius * r, 0, Math.PI * 2);
+        ctx.strokeStyle = r === 1.0 ? 'rgba(245, 158, 11, 0.25)' : 'rgba(147, 51, 234, 0.15)';
+        ctx.lineWidth = r === 1.0 ? 1.5 : 1;
+        ctx.setLineDash(r === 0.75 ? [4, 6] : []);
+        ctx.stroke();
+      }
+
+      // Crosshairs
+      ctx.setLineDash([2, 4]);
+      ctx.strokeStyle = 'rgba(147, 51, 234, 0.18)';
+      ctx.beginPath();
+      ctx.moveTo(centerX - maxRadius, centerY);
+      ctx.lineTo(centerX + maxRadius, centerY);
+      ctx.moveTo(centerX, centerY - maxRadius);
+      ctx.lineTo(centerX, centerY + maxRadius);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // 2. Radar Sweep Beam (Rotating Sonar Scan)
+      radarSweepAngleRef.current += 0.025;
+      const sweepAngle = radarSweepAngleRef.current;
+
+      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+      gradient.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
+      gradient.addColorStop(0.5, 'rgba(168, 85, 247, 0.12)');
+      gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, maxRadius, sweepAngle - 0.45, sweepAngle);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Leading Sweep Laser Line
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(
+        centerX + Math.cos(sweepAngle) * maxRadius,
+        centerY + Math.sin(sweepAngle) * maxRadius
+      );
+      ctx.strokeStyle = '#F59E0B';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#F59E0B';
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.restore();
+
+      // 3. Update and Draw Orbital Nodes
+      setNodes((prevNodes) =>
+        prevNodes.map((node) => ({
+          ...node,
+          angle: (node.angle + node.speed) % (Math.PI * 2),
+        }))
+      );
+
+      nodes.forEach((node) => {
+        const nx = centerX + Math.cos(node.angle) * (node.distance * maxRadius);
+        const ny = centerY + Math.sin(node.angle) * (node.distance * maxRadius);
+
+        // Ambient Beam connecting core to node
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(nx, ny);
+        ctx.strokeStyle = node.glowColor.replace('0.6', '0.15');
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Node Glow Ring
+        ctx.beginPath();
+        ctx.arc(nx, ny, 16, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(15, 18, 30, 0.85)';
+        ctx.shadowColor = node.color;
+        ctx.shadowBlur = 14;
+        ctx.fill();
+
+        ctx.strokeStyle = node.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Icon / Emoji inside node
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 0;
+        ctx.fillText(node.icon, nx, ny + 1);
+
+        // Priority Score Pill
+        ctx.font = 'bold 9px monospace';
+        ctx.fillStyle = node.color;
+        ctx.fillText(`${node.score}%`, nx, ny + 24);
+
+        ctx.restore();
+      });
+
+      // 4. Center Core Pulse (Mail Hinge AI Processing Reactor)
+      ctx.save();
+      const corePulse = Math.sin(Date.now() * 0.005) * 4;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 22 + corePulse, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.18)';
+      ctx.shadowColor = '#F59E0B';
+      ctx.shadowBlur = 24;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+      ctx.fillStyle = '#0F121E';
+      ctx.strokeStyle = '#F59E0B';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.font = 'bold 10px monospace';
+      ctx.fillStyle = '#FDE047';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('AI', centerX, centerY);
+      ctx.restore();
+
+      // 5. Update & Draw Particles (Stardust / Sparkles)
+      for (let i = particlesRef.current.length - 1; i >= 0; i--) {
+        const p = particlesRef.current[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+        p.life++;
+        p.alpha = Math.max(0, 1 - p.life / p.maxLife);
+
+        if (p.alpha <= 0 || p.life >= p.maxLife) {
+          particlesRef.current.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+
+        if (p.symbol) {
+          ctx.font = `${p.size * 2}px sans-serif`;
+          ctx.fillText(p.symbol, p.x, p.y);
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      animFrameIdRef.current = requestAnimationFrame(render);
+    };
+
+    render();
+
+    const handleResize = () => {
+      if (!canvas || !canvas.parentElement) return;
+      width = canvas.width = canvas.parentElement.clientWidth;
+      height = canvas.height = 320;
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [nodes]);
+
+  // Periodic automatic stardust
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (canvasRef.current) {
+        const w = canvasRef.current.width;
+        const h = canvasRef.current.height;
+        spawnBlast(w / 2 + (Math.random() * 80 - 40), h / 2 + (Math.random() * 80 - 40), 4);
+      }
+    }, 1800);
+    return () => clearInterval(timer);
+  }, [spawnBlast]);
+
+  // Parallax 3D Card Style
+  const cardTransform = useMemo(() => {
+    if (!isHovered) return 'perspective(1000px) rotateX(0deg) rotateY(0deg)';
+    const tiltX = (mousePos.y - 0.5) * -12;
+    const tiltY = (mousePos.x - 0.5) * 12;
+    return `perspective(1000px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg)`;
+  }, [isHovered, mousePos]);
 
   return (
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      onClick={handleStageClick}
-      className="relative w-full h-[300px] sm:h-[340px] mx-auto select-none rounded-3xl overflow-hidden cursor-crosshair group flex items-center justify-center"
-      style={{ perspective: '1000px' }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setMousePos({ x: 0.5, y: 0.5, rawX: 0, rawY: 0 });
+      }}
+      className="relative w-full rounded-3xl overflow-hidden bg-gradient-to-b from-[#131122]/90 via-[#0E0C1B]/95 to-[#080712] border border-purple-500/30 shadow-[0_20px_50px_-15px_rgba(147,51,234,0.35)] transition-transform duration-300 ease-out select-none"
+      style={{
+        transform: cardTransform,
+        transformStyle: 'preserve-3d',
+      }}
     >
-      {/* Deep Space Background Aura */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1c1438]/80 via-[#130e26]/90 to-[#0c081a]/95 backdrop-blur-md rounded-3xl border border-purple-500/30" />
-
-      {/* Floating Constellation Starfield Background */}
-      <div className="absolute inset-0 opacity-40 pointer-events-none bg-[radial-gradient(#A855F7_1px,transparent_1px)] [background-size:20px_20px]" />
-
-      {/* Ambient Cosmic Lights */}
-      <div className="absolute top-1/4 left-1/4 w-40 h-40 bg-purple-600/20 rounded-full blur-3xl pointer-events-none animate-pulse-slow" />
-      <div className="absolute bottom-1/4 right-1/4 w-44 h-44 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none animate-pulse-slow" />
-
-      {/* ========================================================= */}
-      {/* ✨ SPRINKLY STARDUST PARTICLES TRAIL                      */}
-      {/* ========================================================= */}
-      {stardust.map((star) => (
-        <div
-          key={star.id}
-          className="absolute pointer-events-none stardust-particle font-mono select-none"
-          style={{
-            left: `${star.x}%`,
-            top: `${star.y}%`,
-            color: star.color,
-            fontSize: `${star.size}px`,
-            textShadow: `0 0 10px ${star.color}, 0 0 20px ${star.color}`,
-            '--drift-x': `${star.driftX}px`,
-            '--drift-y': `${star.driftY}px`,
-            animationDuration: `${star.duration}s`,
-          } as any}
-        >
-          {star.symbol}
-        </div>
-      ))}
-
-      {/* ========================================================= */}
-      {/* ✉️ FLOATING 3D MAIL ICONS IN ORBIT                        */}
-      {/* ========================================================= */}
-      {mailItems.map((mail, idx) => {
-        const isTarget = idx === activeMailIndex;
-
-        return (
-          <div
-            key={mail.id}
-            className={`absolute animate-mail-float transition-all duration-700 ease-out z-10 flex flex-col items-center ${
-              isTarget ? 'scale-110 z-20' : 'opacity-80 scale-95'
+      {/* Top Floating Controls HUD */}
+      <div className="relative z-20 px-5 pt-4 pb-2 flex items-center justify-between border-b border-purple-500/20 bg-[#161228]/60 backdrop-blur-md">
+        {/* Mode Switcher Tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-purple-950/50 rounded-xl border border-purple-500/30">
+          <button
+            onClick={() => setActiveMode('radar')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeMode === 'radar'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                : 'text-purple-300 hover:text-white'
             }`}
-            style={{
-              left: `${mail.x}%`,
-              top: `${mail.y}%`,
-              animationDelay: mail.delay,
-              transform: 'translate(-50%, -50%)',
-            }}
           >
-            {/* Glowing Mail Envelope Icon */}
-            <div
-              className={`relative p-3 rounded-2xl border transition-all duration-300 backdrop-blur-md cursor-pointer hover:scale-125 ${
-                mail.bgGlow
-              } ${mail.color} ${
-                isTarget
-                  ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-[#130e26] animate-bounce-subtle'
-                  : 'hover:border-white/60'
-              }`}
-            >
-              <div className="flex items-center justify-center">
-                <Mail className="w-6 h-6 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]" />
-              </div>
+            <Radio className="w-3.5 h-3.5" />
+            <span>3D Radar</span>
+          </button>
 
-              {/* Category Mini Floating Badge */}
-              <div className="absolute -bottom-1.5 -right-1.5 p-1 rounded-lg bg-[#0e0a1c] border border-white/20 shadow-md">
-                {mail.icon}
-              </div>
-            </div>
+          <button
+            onClick={() => setActiveMode('robot')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeMode === 'robot'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                : 'text-purple-300 hover:text-white'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Mailo Bot</span>
+          </button>
 
-            {/* Floating Tag Label */}
-            <div
-              className={`mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold whitespace-nowrap transition-all duration-300 border ${
-                isTarget
-                  ? 'bg-purple-900/90 text-white border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.5)]'
-                  : 'bg-black/60 text-slate-300 border-white/10 opacity-70'
-              }`}
-            >
-              <span>{mail.label}</span>
-              {isTarget && (
-                <span className="ml-1 text-cyan-300 font-bold">[{mail.score}]</span>
-              )}
-            </div>
+          <button
+            onClick={() => setActiveMode('pipeline')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeMode === 'pipeline'
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                : 'text-purple-300 hover:text-white'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>Live Stream</span>
+          </button>
+        </div>
+
+        {/* Live Status Pill */}
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-mono text-emerald-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>60 FPS Active</span>
           </div>
-        );
-      })}
-
-      {/* ========================================================= */}
-      {/* 🤖 3D FLYING ROBOT WITH STARDUST THRUSTERS                */}
-      {/* ========================================================= */}
-      <div
-        className="absolute transition-all duration-150 ease-out z-30 pointer-events-auto"
-        style={{
-          left: `${robotPos.x}%`,
-          top: `${robotPos.y}%`,
-          transform: `translate(-50%, -50%) rotateY(${mousePos.normalizedX * 25}deg) rotateX(${
-            -mousePos.normalizedY * 20
-          }deg) rotateZ(${mousePos.normalizedX * 12}deg)`,
-          transformStyle: 'preserve-3d',
-        }}
-      >
-        <div className="relative animate-robot-fly cursor-pointer group">
-          {/* Glowing Aura halo around flying bot */}
-          <div className="absolute -inset-4 bg-gradient-to-tr from-purple-500/40 via-cyan-400/40 to-pink-500/30 rounded-full blur-xl opacity-90 animate-pulse" />
-
-          {/* Robot Head Body */}
-          <div className="relative w-24 h-20 rounded-3xl bg-gradient-to-b from-[#35275E] via-[#241A45] to-[#150F2D] border-2 border-purple-300/80 shadow-[0_12px_30px_-4px_rgba(168,85,247,0.6)] p-2 flex flex-col justify-between items-center transition-transform group-hover:scale-110">
-            {/* Flying Antenna with Sparkling Star Beacon */}
-            <div className="absolute -top-4 flex flex-col items-center">
-              <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-cyan-400 to-white border-2 border-white shadow-[0_0_15px_#38BDF8] flex items-center justify-center animate-pulse">
-                <span className="text-[8px] text-purple-950 font-black">✦</span>
-              </div>
-              <div className="w-1 h-2 bg-gradient-to-b from-purple-300 to-indigo-500 rounded-full" />
-            </div>
-
-            {/* Side Cyber Wings */}
-            <div className="absolute -left-2.5 top-4 w-2.5 h-6 rounded-l-xl bg-gradient-to-b from-cyan-400 to-purple-600 border border-purple-300/60 shadow-[0_0_8px_rgba(56,189,248,0.5)]" />
-            <div className="absolute -right-2.5 top-4 w-2.5 h-6 rounded-r-xl bg-gradient-to-b from-cyan-400 to-purple-600 border border-purple-300/60 shadow-[0_0_8px_rgba(56,189,248,0.5)]" />
-
-            {/* Visor Screen with Expressive Cyber Eyes */}
-            <div className="w-full h-10 rounded-2xl bg-[#070512] border border-purple-400/50 p-1 flex items-center justify-around overflow-hidden shadow-inner relative">
-              {/* Laser sweep line across visor */}
-              <div className="absolute inset-y-0 w-6 bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent animate-shimmer" />
-
-              {/* Left Eye */}
-              <div className="w-4 h-4 rounded-full bg-cyan-400/20 border border-cyan-400 flex items-center justify-center shadow-[0_0_10px_#38BDF8]">
-                <div className="w-2 h-2 rounded-full bg-cyan-300 animate-pulse" />
-              </div>
-
-              {/* Center Audio Wave HUD */}
-              <div className="flex items-center gap-0.5 h-2.5">
-                <span className="w-0.5 h-2 bg-purple-400 rounded-full animate-pulse" />
-                <span className="w-0.5 h-3 bg-cyan-400 rounded-full animate-bounce-subtle" />
-                <span className="w-0.5 h-2 bg-purple-400 rounded-full animate-pulse" />
-              </div>
-
-              {/* Right Eye */}
-              <div className="w-4 h-4 rounded-full bg-cyan-400/20 border border-cyan-400 flex items-center justify-center shadow-[0_0_10px_#38BDF8]">
-                <div className="w-2 h-2 rounded-full bg-cyan-300 animate-pulse" />
-              </div>
-            </div>
-
-            {/* Bottom Thruster Jet with Stardust Plasma Flame */}
-            <div className="absolute -bottom-3 flex items-center gap-2">
-              <div className="w-2.5 h-4 rounded-b-full bg-gradient-to-b from-cyan-400 via-purple-500 to-transparent shadow-[0_0_12px_#38BDF8] animate-pulse" />
-              <div className="w-2.5 h-4 rounded-b-full bg-gradient-to-b from-cyan-400 via-purple-500 to-transparent shadow-[0_0_12px_#38BDF8] animate-pulse" />
-            </div>
-
-            {/* AI Core Emblem */}
-            <div className="flex items-center gap-1 text-[8px] font-mono text-purple-200">
-              <Sparkles className="w-2.5 h-2.5 text-cyan-300 animate-spin" />
-              <span>Mailo AI</span>
-            </div>
-          </div>
+          <button
+            onClick={() => {
+              if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                spawnBlast(rect.width / 2, 160, 40, '#F59E0B');
+              }
+              setTriagedCount((c) => c + 3);
+            }}
+            className="p-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs transition-all active:scale-95"
+            title="Trigger AI Particle Scan"
+          >
+            <Sparkles className="w-4 h-4 animate-spin" />
+          </button>
         </div>
       </div>
 
       {/* ========================================================= */}
-      {/* 🌟 LASER SCANNING BEAM TO ACTIVE TARGET MAIL             */}
+      {/* MODE 1: 3D HOLOGRAPHIC RADAR CANVAS                      */}
       {/* ========================================================= */}
-      {isScanning && activeTargetMail && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-15">
-          <defs>
-            <linearGradient id="laserGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.8" />
-              <stop offset="50%" stopColor="#C084FC" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#F472B6" stopOpacity="0.4" />
-            </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          <line
-            x1={`${robotPos.x}%`}
-            y1={`${robotPos.y}%`}
-            x2={`${activeTargetMail.x}%`}
-            y2={`${activeTargetMail.y}%`}
-            stroke="url(#laserGrad)"
-            strokeWidth="2.5"
-            strokeDasharray="4,3"
-            filter="url(#glow)"
-            className="animate-pulse"
+      {activeMode === 'radar' && (
+        <div className="relative w-full h-[320px] overflow-hidden flex items-center justify-center">
+          <canvas
+            ref={canvasRef}
+            onClick={handleCanvasClick}
+            className="w-full h-full cursor-crosshair relative z-10"
           />
-        </svg>
+
+          {/* Interactive Tooltip Card for Selected Radar Node */}
+          {selectedNode && (
+            <div className="absolute top-4 inset-x-6 z-30 animate-scale-in-spring">
+              <div className="p-3.5 rounded-2xl bg-[#16122B]/95 border border-purple-500/40 shadow-2xl backdrop-blur-xl flex items-center justify-between text-left">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ backgroundColor: `${selectedNode.color}20`, border: `1px solid ${selectedNode.color}` }}
+                  >
+                    {selectedNode.icon}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white tracking-tight">{selectedNode.title}</span>
+                      <span
+                        className="text-[10px] font-mono px-1.5 py-0.2 rounded font-bold"
+                        style={{ backgroundColor: `${selectedNode.color}25`, color: selectedNode.color }}
+                      >
+                        {selectedNode.score}/100 Priority
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-300/80 mt-0.5">{selectedNode.detail}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedNode(null)}
+                  className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs text-white transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Interactive Click Tip */}
+          <div className="absolute bottom-3 inset-x-0 flex items-center justify-center pointer-events-none z-20">
+            <div className="px-3.5 py-1.5 rounded-full bg-purple-950/80 border border-purple-500/40 text-[11px] font-mono text-purple-200/90 backdrop-blur-md flex items-center gap-2 shadow-lg">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+              <span>Click any orbital node or tap radar to triage</span>
+              <span className="text-amber-300 font-bold">({triagedCount} processed)</span>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Floating Prompt on hover / click */}
-      <div className="absolute bottom-2 inset-x-0 flex items-center justify-center pointer-events-none z-20">
-        <div className="px-3 py-1 rounded-full bg-purple-950/70 border border-purple-500/30 text-[10px] font-mono text-purple-200/80 backdrop-blur-md flex items-center gap-1.5 shadow-lg">
-          <Sparkles className="w-3 h-3 text-cyan-400 animate-spin" />
-          <span>Click to sprinkle stardust & sort mail</span>
-          <span className="text-cyan-300 font-bold">({sortedCount} sorted)</span>
+      {/* ========================================================= */}
+      {/* MODE 2: 🤖 CYBER BOT MAILO 2.0 (Glassmorphic 3D Assistant)*/}
+      {/* ========================================================= */}
+      {activeMode === 'robot' && (
+        <div className="relative w-full h-[320px] p-6 flex flex-col items-center justify-center overflow-hidden">
+          {/* Cyber grid background */}
+          <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#F59E0B_1px,transparent_1px)] [background-size:20px_20px]" />
+
+          {/* 3D Flying Robot */}
+          <div
+            className="relative cursor-pointer transition-transform duration-200"
+            style={{
+              transform: `translate(${(mousePos.x - 0.5) * 50}px, ${(mousePos.y - 0.5) * 35}px) rotateY(${
+                (mousePos.x - 0.5) * 28
+              }deg) rotateX(${(mousePos.y - 0.5) * -20}deg)`,
+              transformStyle: 'preserve-3d',
+            }}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              spawnBlast(rect.left + rect.width / 2, rect.top + rect.height / 2, 35, '#38BDF8');
+              setTriagedCount((c) => c + 1);
+              setRobotEmotion(robotEmotion === 'friendly' ? 'excited' : 'friendly');
+            }}
+          >
+            {/* Ambient Bot Glow Aura */}
+            <div className="absolute -inset-6 bg-gradient-to-tr from-amber-500/30 via-purple-600/40 to-cyan-400/30 rounded-full blur-2xl opacity-90 animate-pulse" />
+
+            {/* Robot Head Frame */}
+            <div className="relative w-28 h-24 rounded-[32px] bg-gradient-to-b from-[#2E234D] via-[#1E1736] to-[#120E24] border-2 border-purple-400/60 shadow-[0_15px_35px_-5px_rgba(168,85,247,0.5)] p-2.5 flex flex-col justify-between items-center group">
+              {/* Antenna with Glowing Gem */}
+              <div className="absolute -top-5 flex flex-col items-center">
+                <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-amber-400 to-white border-2 border-amber-300 shadow-[0_0_18px_#F59E0B] flex items-center justify-center animate-bounce-subtle">
+                  <span className="text-[9px] text-amber-950 font-black">✦</span>
+                </div>
+                <div className="w-1.5 h-2.5 bg-gradient-to-b from-amber-400 to-purple-500 rounded-full" />
+              </div>
+
+              {/* Side Cyber Ears */}
+              <div className="absolute -left-3 top-6 w-3 h-8 rounded-l-xl bg-gradient-to-b from-amber-400 to-purple-600 border border-purple-300/40 shadow-[0_0_10px_rgba(245,158,11,0.4)]" />
+              <div className="absolute -right-3 top-6 w-3 h-8 rounded-r-xl bg-gradient-to-b from-amber-400 to-purple-600 border border-purple-300/40 shadow-[0_0_10px_rgba(245,158,11,0.4)]" />
+
+              {/* Visor Screen */}
+              <div className="w-full h-12 rounded-2xl bg-[#06050E] border border-purple-400/40 p-1 flex items-center justify-around overflow-hidden shadow-inner relative">
+                {/* Shimmer sweep */}
+                <div className="absolute inset-y-0 w-8 bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent animate-shimmer" />
+
+                {/* Left Eye */}
+                <div className="w-5 h-5 rounded-full bg-cyan-400/20 border border-cyan-400 flex items-center justify-center shadow-[0_0_12px_#38BDF8]">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full bg-cyan-300 transition-transform duration-100"
+                    style={{
+                      transform: `translate(${(mousePos.x - 0.5) * 4}px, ${(mousePos.y - 0.5) * 4}px)`,
+                    }}
+                  />
+                </div>
+
+                {/* Audio Equalizer Spectrum */}
+                <div className="flex items-center gap-1 h-3">
+                  <span className="w-1 h-3 bg-amber-400 rounded-full animate-pulse" />
+                  <span className="w-1 h-4 bg-cyan-400 rounded-full animate-bounce-subtle" />
+                  <span className="w-1 h-2.5 bg-purple-400 rounded-full animate-pulse" />
+                </div>
+
+                {/* Right Eye */}
+                <div className="w-5 h-5 rounded-full bg-cyan-400/20 border border-cyan-400 flex items-center justify-center shadow-[0_0_12px_#38BDF8]">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full bg-cyan-300 transition-transform duration-100"
+                    style={{
+                      transform: `translate(${(mousePos.x - 0.5) * 4}px, ${(mousePos.y - 0.5) * 4}px)`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Bottom Thrusters */}
+              <div className="absolute -bottom-3.5 flex items-center gap-2.5">
+                <div className="w-3 h-5 rounded-b-full bg-gradient-to-b from-amber-400 via-purple-500 to-transparent shadow-[0_0_14px_#F59E0B] animate-pulse" />
+                <div className="w-3 h-5 rounded-b-full bg-gradient-to-b from-cyan-400 via-purple-500 to-transparent shadow-[0_0_14px_#38BDF8] animate-pulse" />
+              </div>
+
+              {/* Bot Tag */}
+              <div className="flex items-center gap-1.5 text-[9px] font-mono text-amber-300 font-bold">
+                <Sparkles className="w-3 h-3 text-cyan-400 animate-spin" />
+                <span>Mailo AI 2.0</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 text-center">
+            <div className="text-xs font-semibold text-white">Click Mailo to interact & trigger AI stardust sorting</div>
+            <div className="text-[11px] text-purple-300/70 font-mono mt-0.5">Move your cursor to guide his eyes & 3D head</div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODE 3: ⚡ LIVE STREAM INGESTION PIPELINE                 */}
+      {/* ========================================================= */}
+      {activeMode === 'pipeline' && (
+        <div className="relative w-full h-[320px] p-6 flex flex-col justify-between overflow-hidden">
+          <div className="grid grid-cols-3 gap-3 relative z-10">
+            {/* Input Sources */}
+            <div className="p-3 rounded-2xl bg-[#17122E]/80 border border-blue-500/30 text-left">
+              <div className="text-[10px] font-mono uppercase text-blue-400 font-bold mb-1 flex items-center gap-1">
+                <Radio className="w-3 h-3" /> Multi-Source
+              </div>
+              <div className="text-xs font-bold text-white">Gmail • Telegram • Outlook</div>
+              <div className="text-[10px] text-slate-400 mt-1">Direct IMAP & Webhook live ingestion</div>
+            </div>
+
+            {/* Neural Priority Core */}
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/40 text-center shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <div className="text-[10px] font-mono uppercase text-amber-400 font-bold mb-1 flex items-center justify-center gap-1">
+                <Cpu className="w-3 h-3 animate-spin" /> Claude / Gemini 3.7
+              </div>
+              <div className="text-xs font-black text-amber-300">Priority Engine</div>
+              <div className="text-[10px] text-amber-200/70 mt-1">Real-time urgency scoring & action tags</div>
+            </div>
+
+            {/* Action Targets */}
+            <div className="p-3 rounded-2xl bg-[#17122E]/80 border border-emerald-500/30 text-right">
+              <div className="text-[10px] font-mono uppercase text-emerald-400 font-bold mb-1 flex items-center justify-end gap-1">
+                <CheckSquare className="w-3 h-3" /> Action Output
+              </div>
+              <div className="text-xs font-bold text-white">Kanban & Calendar</div>
+              <div className="text-[10px] text-slate-400 mt-1">Deadlines extracted & tasks scheduled</div>
+            </div>
+          </div>
+
+          {/* Animated Flow Track */}
+          <div className="relative my-4 flex items-center justify-between px-6">
+            <div className="w-full h-1.5 bg-gradient-to-r from-blue-500 via-amber-400 to-emerald-400 rounded-full relative overflow-hidden">
+              <div className="absolute inset-0 bg-white/40 animate-shimmer" />
+            </div>
+          </div>
+
+          {/* Bottom Live Metrics */}
+          <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
+            <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+              <div className="text-slate-400 text-[10px]">Processing Latency</div>
+              <div className="text-emerald-400 font-bold text-sm">0.038s</div>
+            </div>
+            <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+              <div className="text-slate-400 text-[10px]">Triaged This Session</div>
+              <div className="text-amber-400 font-bold text-sm">{triagedCount} emails</div>
+            </div>
+            <div className="p-2 rounded-xl bg-black/40 border border-white/10">
+              <div className="text-slate-400 text-[10px]">Accuracy Confidence</div>
+              <div className="text-cyan-400 font-bold text-sm">99.8%</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
