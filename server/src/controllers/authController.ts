@@ -249,7 +249,23 @@ export class AuthController {
   public async getGoogleAuthUrl(req: Request, res: Response) {
     try {
       const reqHost = req.get('host') || 'localhost:4000';
-      const authInfo = googleOAuthService.getAuthUrl(reqHost);
+      const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+      const serverOrigin = `${protocol}://${reqHost}`;
+
+      let clientOrigin = (req.query.origin as string) || '';
+      if (!clientOrigin && req.headers.referer) {
+        try {
+          clientOrigin = new URL(req.headers.referer).origin;
+        } catch {}
+      }
+      if (!clientOrigin && req.headers.origin) {
+        clientOrigin = String(req.headers.origin);
+      }
+      if (!clientOrigin) {
+        clientOrigin = process.env.CLIENT_URL || process.env.FRONTEND_URL || serverOrigin;
+      }
+
+      const authInfo = googleOAuthService.getAuthUrl(reqHost, clientOrigin);
 
       return res.json({
         success: true,
@@ -271,14 +287,27 @@ export class AuthController {
    */
   public async configureGoogleOAuth(req: Request, res: Response) {
     try {
-      const { clientId, clientSecret } = req.body;
+      const { clientId, clientSecret, origin } = req.body;
       if (!clientId || !clientSecret) {
         return res.status(400).json({ success: false, error: 'Both clientId and clientSecret are required.' });
       }
 
       googleOAuthService.setCredentials(clientId, clientSecret);
       const reqHost = req.get('host') || 'localhost:4000';
-      const authInfo = googleOAuthService.getAuthUrl(reqHost);
+      const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+      const serverOrigin = `${protocol}://${reqHost}`;
+
+      let clientOrigin = (origin as string) || '';
+      if (!clientOrigin && req.headers.referer) {
+        try {
+          clientOrigin = new URL(req.headers.referer).origin;
+        } catch {}
+      }
+      if (!clientOrigin) {
+        clientOrigin = process.env.CLIENT_URL || process.env.FRONTEND_URL || serverOrigin;
+      }
+
+      const authInfo = googleOAuthService.getAuthUrl(reqHost, clientOrigin);
 
       return res.json({
         success: true,
@@ -300,19 +329,29 @@ export class AuthController {
    * Handles the redirect callback from Google OAuth 2.0 consent flow
    */
   public async handleGoogleCallback(req: Request, res: Response) {
+    const reqHost = req.get('host') || 'localhost:4000';
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+    const currentServerOrigin = `${protocol}://${reqHost}`;
+
+    const stateStr = typeof req.query.state === 'string' ? req.query.state.trim() : '';
+    let frontendHost = (stateStr.startsWith('http://') || stateStr.startsWith('https://'))
+      ? stateStr.replace(/\/+$/, '')
+      : (process.env.CLIENT_URL || process.env.FRONTEND_URL || currentServerOrigin);
+
     try {
       const { code, error } = req.query;
 
       if (error) {
         console.error('[AuthController.handleGoogleCallback] Google error:', error);
-        return res.redirect(`http://localhost:5173/?auth_error=${encodeURIComponent(String(error))}`);
+        const errorUrl = `${frontendHost}/?auth_error=${encodeURIComponent(String(error))}`;
+        return res.redirect(errorUrl);
       }
 
       if (!code || typeof code !== 'string') {
-        return res.redirect(`http://localhost:5173/?auth_error=No authorization code provided`);
+        const noCodeUrl = `${frontendHost}/?auth_error=No authorization code provided`;
+        return res.redirect(noCodeUrl);
       }
 
-      const reqHost = req.get('host') || 'localhost:4000';
       const tokens = await googleOAuthService.exchangeCodeForTokens(code, reqHost);
       const profile = await googleOAuthService.getUserProfile(tokens.accessToken);
       const user = await googleOAuthService.loginOrRegisterWithGoogle(profile, tokens);
@@ -327,13 +366,115 @@ export class AuthController {
         console.warn(`[AuthController] Initial Google OAuth sync warning for ${user.email}:`, syncErr.message);
       });
 
-      const frontendHost = req.get('origin') || 'http://localhost:5173';
       const redirectTarget = `${frontendHost}/?google_auth_success=true&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}`;
+      const fallbackTarget = `${currentServerOrigin}/?google_auth_success=true&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}`;
 
-      return res.redirect(redirectTarget);
+      const safeRedirectHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authenticating with Google — Mail Hinge AI</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0a0d14;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #121622;
+      border: 1px solid #1e293b;
+      border-radius: 20px;
+      padding: 36px 32px;
+      max-width: 440px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3.5px solid rgba(245, 158, 11, 0.2);
+      border-top-color: #f59e0b;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 19px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    p {
+      margin: 0 0 18px;
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    a.btn {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 10px 20px;
+      background: #f59e0b;
+      color: #000;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    a.btn:hover {
+      background: #d97706;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <h2>Authentication Successful</h2>
+    <p>Signing in as <strong>${escape(user.name || user.email)}</strong> and syncing your emails...</p>
+    <p style="font-size: 12px; color: #64748b;">If you are not redirected automatically, click below:</p>
+    <a id="redirect-link" href="${redirectTarget}" class="btn">Open Mail Hinge AI</a>
+  </div>
+  <script>
+    const target = ${JSON.stringify(redirectTarget)};
+    const fallback = ${JSON.stringify(fallbackTarget)};
+    
+    // Immediate redirect attempt
+    try {
+      window.location.replace(target);
+    } catch(e) {
+      window.location.href = target;
+    }
+
+    // Safety fallback in case dev port was closed/unreachable
+    if (fallback !== target) {
+      setTimeout(function() {
+        try {
+          window.location.replace(fallback);
+        } catch(e) {
+          window.location.href = fallback;
+        }
+      }, 2200);
+    }
+  </script>
+</body>
+</html>`;
+
+      res.setHeader('Location', redirectTarget);
+      return res.status(302).send(safeRedirectHtml);
     } catch (err: any) {
       console.error('[AuthController.handleGoogleCallback]', err);
-      return res.redirect(`http://localhost:5173/?auth_error=${encodeURIComponent(err.message || 'Google authentication failed')}`);
+      return res.redirect(`${frontendHost}/?auth_error=${encodeURIComponent(err.message || 'Google authentication failed')}`);
     }
   }
 

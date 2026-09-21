@@ -296,6 +296,9 @@ export const App: React.FC = () => {
 
     if (googleSuccess === 'true' && authEmail) {
       authStorage.setActiveUserEmail(authEmail);
+      setIsAuthPageOpen(false);
+      setIsLoginModalOpen(false);
+      setIsConnectMailboxOpen(false);
       setAuthToast({
         type: 'success',
         message: `Successfully authenticated with Google as ${authName || authEmail}! Gmail sync started.`,

@@ -253,7 +253,9 @@ export const api = {
     clientId: string | null;
     redirectUri: string;
   }> {
-    const res = await customFetch(`${API_BASE}/auth/google/url`);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const query = origin ? `?origin=${encodeURIComponent(origin)}` : '';
+    const res = await customFetch(`${API_BASE}/auth/google/url${query}`);
     return handleResponse(res);
   },
 
@@ -263,10 +265,11 @@ export const api = {
     clientId: string | null;
     redirectUri: string;
   }> {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const res = await customFetch(`${API_BASE}/auth/google/configure`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId, clientSecret }),
+      body: JSON.stringify({ clientId, clientSecret, origin }),
     });
     return handleResponse(res);
   },
