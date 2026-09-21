@@ -121,11 +121,11 @@ export const TopNav: React.FC<TopNavProps> = ({
           className="flex items-center gap-2 sm:gap-2.5 group cursor-pointer"
           title="Go to Dashboard"
         >
-          <div className="w-8 h-8 rounded-xl overflow-hidden bg-black border border-orange-500/30 shadow-[0_0_12px_rgba(249,115,22,0.35)] flex-shrink-0 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-2">
+          <div className="w-8 h-8 flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-2">
             <img
-              src="/mailhinge-logo.jpg"
+              src="/mailhinge-logo.png"
               alt="Mail Hinge AI Logo"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(245,158,11,0.35)]"
             />
           </div>
           <div className="text-base font-extrabold text-slate-900 dark:text-slate-100 tracking-tight font-sans flex items-center gap-1 select-none">

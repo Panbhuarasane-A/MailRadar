@@ -30,8 +30,8 @@ export const PublicLegalPage: React.FC<PublicLegalPageProps> = ({
       <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl overflow-hidden bg-black border border-amber-500/40 shadow-lg shadow-amber-500/20 flex-shrink-0">
-              <img src="/mailhinge-logo.jpg" alt="Mail Hinge AI" className="w-full h-full object-cover" />
+            <div className="w-9 h-9 flex items-center justify-center flex-shrink-0">
+              <img src="/mailhinge-logo.png" alt="Mail Hinge AI" className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(245,158,11,0.4)]" />
             </div>
             <div>
               <span className="font-extrabold text-base tracking-tight text-white">Mail Hinge AI</span>

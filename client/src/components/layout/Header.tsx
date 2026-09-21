@@ -27,11 +27,11 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-30 bg-[#0a0d14]/90 backdrop-blur-md border-b border-slate-800 px-6 py-3.5 flex items-center justify-between">
       {/* Left: Logo & Radar Pulse */}
       <div className="flex items-center gap-3">
-        <div className="relative flex items-center justify-center w-9 h-9 rounded-xl overflow-hidden bg-black border border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.4)] flex-shrink-0">
+        <div className="relative flex items-center justify-center w-9 h-9 flex-shrink-0">
           <img
-            src="/mailhinge-logo.jpg"
+            src="/mailhinge-logo.png"
             alt="MailHinge"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain filter drop-shadow-[0_2px_10px_rgba(245,158,11,0.4)]"
           />
         </div>
 

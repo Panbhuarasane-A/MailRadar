@@ -209,11 +209,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-[#1e2230] flex items-center justify-between bg-slate-50/50 dark:bg-[#0c0d12] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl overflow-hidden bg-black border border-orange-500/40 shadow-[0_0_12px_rgba(249,115,22,0.35)] flex-shrink-0">
+            <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
               <img
-                src="/mailo-logo.jpg"
-                alt="Mailo AI Logo"
-                className="w-full h-full object-cover"
+                src="/mailhinge-logo.png"
+                alt="Mail Hinge AI Logo"
+                className="w-full h-full object-contain filter drop-shadow-[0_2px_10px_rgba(245,158,11,0.4)]"
               />
             </div>
             <div>

@@ -258,11 +258,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           {/* Top Brand */}
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl overflow-hidden bg-black border border-amber-500/40 shadow-[0_0_16px_rgba(245,158,11,0.4)] flex-shrink-0 transition-transform duration-300 hover:scale-105">
+              <div className="w-11 h-11 flex items-center justify-center flex-shrink-0 transition-transform duration-300 hover:scale-105">
                 <img
-                  src="/mailhinge-logo.jpg"
+                  src="/mailhinge-logo.png"
                   alt="MailHinge Logo"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(245,158,11,0.4)]"
                 />
               </div>
               <div>

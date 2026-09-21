@@ -262,11 +262,11 @@ export const TutorialTourModal: React.FC<TutorialTourModalProps> = ({
         {/* Modal Header: Step Progress & Close */}
         <div className="relative z-10 px-6 pt-5 pb-3 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl overflow-hidden bg-black border border-orange-500/40 shadow-[0_0_12px_rgba(249,115,22,0.4)] flex-shrink-0">
+            <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
               <img
-                src="/mailo-logo.jpg"
-                alt="Mailo AI Logo"
-                className="w-full h-full object-cover"
+                src="/mailhinge-logo.png"
+                alt="Mail Hinge AI Logo"
+                className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(245,158,11,0.4)]"
               />
             </div>
             <div>
